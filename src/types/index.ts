@@ -1,4 +1,22 @@
 // ==========================================
+// USER & AUTH MODELS
+// ==========================================
+
+export type UserRole = 'INSTRUCTOR' | 'STUDENT';
+export type UserStatus = 'ACTIVE' | 'BLOCKED' | 'EXPIRED';
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL?: string;
+  role: UserRole;
+  status: UserStatus;
+  licenseExpiry?: number; // Timestamp kapan akun expired
+  createdAt: number;
+}
+
+// ==========================================
 // CORE DATA MODELS (Blueprint Sistem)
 // ==========================================
 
