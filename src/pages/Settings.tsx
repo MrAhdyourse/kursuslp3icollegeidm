@@ -44,7 +44,23 @@ const Settings: React.FC = () => {
     }
   };
 
-  if (!user) return null;
+  if (!user) {
+    return (
+       <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8 animate-fade-in">
+          <Shield size={64} className="text-slate-300 mb-4" />
+          <h2 className="text-xl font-bold text-slate-800">Profil Tidak Ditemukan</h2>
+          <p className="text-slate-500 max-w-md mx-auto mt-2 mb-6">
+            Gagal memuat informasi profil pengguna. Silakan coba login ulang atau hubungi administrator.
+          </p>
+          <button 
+            onClick={logout} 
+            className="px-6 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition"
+          >
+            Login Ulang
+          </button>
+       </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in max-w-6xl mx-auto pb-12">
