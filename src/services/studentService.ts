@@ -54,23 +54,20 @@ export const studentService = {
   },
 
   async uploadStudentPhoto(file: File, fileName: string, folderName: string = 'students') {
-    console.log(`Starting upload to ${folderName}...`);
+    console.log(`Uploading to ${folderName}...`);
     try {
       const timestamp = Date.now();
       const safeName = fileName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-      // Gunakan path yang lebih pendek dan bersih
+      // Langsung ke folder target tanpa subfolder uploads
       const path = `${folderName}/${safeName}_${timestamp}`;
       
       const storageRef = ref(storage, path);
-      
-      // Upload dengan proteksi
       const snapshot = await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(snapshot.ref);
       
-      console.log("Upload Success! URL:", downloadURL);
       return { success: true, url: downloadURL };
     } catch (error: any) {
-      console.error("Firebase Storage Error Detail:", error);
+      console.error("Storage Error:", error);
       return { success: false, error: error.message };
     }
   },
