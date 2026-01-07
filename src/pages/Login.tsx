@@ -60,16 +60,12 @@ const Login: React.FC = () => {
            mode === 'INSTRUCTOR' ? 'bg-blue-600/80' : 'bg-emerald-600/80'
         }`}>
           <div>
-            {/* LOGO AREA */}
-            <div className="bg-white p-4 rounded-2xl w-fit shadow-xl mb-10 group-hover:scale-105 transition-transform duration-500">
-               <img src="/logo.png" alt="LP3I Logo" className="h-20 w-auto object-contain" onError={(e) => {
-                 // Fallback jika logo belum diupload
-                 e.currentTarget.style.display = 'none';
-                 e.currentTarget.parentElement!.innerHTML = '<span class="text-brand-blue font-black text-3xl px-4">LP3I</span>';
-               }} />
+            {/* LOGO AREA - PREMIUM DISPLAY */}
+            <div className="bg-white p-6 rounded-2xl w-fit shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] mb-10 group-hover:scale-105 transition-transform duration-500 relative z-10">
+               <img src="/logo.png" alt="LP3I Logo" className="h-20 w-auto object-contain drop-shadow-md" />
             </div>
             
-            <h2 className="text-4xl font-bold leading-tight mb-4">
+            <h2 className="text-4xl font-bold leading-tight mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-100 to-white drop-shadow-sm">
               Sistem Informasi <br/> Kursus & Pelatihan
             </h2>
             <p className="text-white/80 text-lg font-light leading-relaxed">
@@ -78,13 +74,27 @@ const Login: React.FC = () => {
           </div>
 
           <div className="space-y-4">
-             <div className="flex items-center gap-4 bg-black/20 p-4 rounded-xl border border-white/10">
-                <div className="p-3 bg-white/20 rounded-full">
-                  <User size={24} />
-                </div>
-                <div>
-                   <p className="text-xs text-white/60 uppercase tracking-wider">Dikembangkan Oleh</p>
-                   <p className="font-semibold">Ahdi Yourse</p>
+             {/* DEVELOPER CREDIT - SHINY & ELEGANT */}
+             <div className="relative overflow-hidden rounded-xl border border-white/20 bg-white/5 backdrop-blur-md p-4 transition-all duration-300 hover:bg-white/10 hover:border-white/40 hover:shadow-[0_0_30px_rgba(255,255,255,0.15)] group/card">
+                
+                {/* Efek Kilauan Berjalan (Shine Effect) */}
+                <div className="absolute top-0 -inset-full h-full w-1/2 z-5 block transform -skew-x-12 bg-gradient-to-r from-transparent to-white opacity-20 group-hover/card:animate-[shimmer_1s_infinite]"></div>
+
+                <div className="relative z-10 flex items-center gap-4">
+                   <div className="p-3 bg-gradient-to-br from-white/20 to-white/5 rounded-full border border-white/20 shadow-inner">
+                     <User size={22} className="text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.8)]" />
+                   </div>
+                   <div>
+                      <p className="text-[10px] text-blue-200 uppercase tracking-[0.25em] font-medium mb-1">Developed & Dedicated To</p>
+                      <div className="flex flex-col">
+                        <span className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-200 to-blue-200 drop-shadow-sm filter brightness-110">
+                          Ahdi Yourse
+                        </span>
+                        <span className="text-xs text-white/60 font-light tracking-wide">
+                          LP3I College Indramayu
+                        </span>
+                      </div>
+                   </div>
                 </div>
              </div>
           </div>
