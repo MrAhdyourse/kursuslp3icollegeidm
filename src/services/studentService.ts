@@ -53,25 +53,25 @@ export const studentService = {
     }
   },
 
-  /**
-   * Upload File (Foto Siswa / Profil User)
-   * folderName default: 'students'
-   */
   async uploadStudentPhoto(file: File, fileName: string, folderName: string = 'students') {
+    console.log(`Starting upload to ${folderName}...`);
     try {
-      // Create unique filename
       const timestamp = Date.now();
       const safeName = fileName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-      const path = `uploads/${folderName}/${safeName}_${timestamp}`;
+      // Gunakan path yang lebih pendek dan bersih
+      const path = `${folderName}/${safeName}_${timestamp}`;
       
       const storageRef = ref(storage, path);
+      
+      // Upload dengan proteksi
       const snapshot = await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(snapshot.ref);
       
+      console.log("Upload Success! URL:", downloadURL);
       return { success: true, url: downloadURL };
-    } catch (error) {
-      console.error("Error uploading photo: ", error);
-      return { success: false, error };
+    } catch (error: any) {
+      console.error("Firebase Storage Error Detail:", error);
+      return { success: false, error: error.message };
     }
   },
 

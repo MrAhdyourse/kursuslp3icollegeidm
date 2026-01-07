@@ -41,7 +41,8 @@ const Settings: React.FC = () => {
         if (res.success && res.url) {
           urlFoto = res.url;
         } else {
-          throw new Error("Gagal mengunggah foto. Periksa aturan Firebase Storage Anda.");
+          // Tangkap pesan error spesifik dari service
+          throw new Error(res.error || "Gagal mengunggah foto. Pastikan Firebase Storage sudah aktif.");
         }
       }
 
