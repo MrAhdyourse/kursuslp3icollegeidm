@@ -29,22 +29,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // Ambil data detail dari Firestore (Role, Status, dll)
-        const docRef = doc(db, 'users', firebaseUser.uid);
-        const docSnap = await getDoc(docRef);
+      try {
+        if (firebaseUser) {
+          const docRef = doc(db, 'users', firebaseUser.uid);
+          const docSnap = await getDoc(docRef);
 
-        if (docSnap.exists()) {
-          setUser(docSnap.data() as UserProfile);
+          if (docSnap.exists()) {
+            const userData = docSnap.data() as UserProfile;
+            
+            if (userData.status === 'BLOCKED') {
+              await signOut(auth);
+              setUser(null);
+            } else if (userData.status === 'EXPIRED' && userData.licenseExpiry && Date.now() > userData.licenseExpiry) {
+               await signOut(auth);
+               setUser(null);
+            } else {
+               setUser(userData);
+            }
+          } else {
+            console.warn("User profile not found in Firestore.");
+            setUser(null);
+          }
         } else {
-          // Fallback jika user login tapi data di Firestore hilang/belum ada
-          // (Opsional: Bisa auto-create user profile di sini jika perlu)
-          setUser(null); 
+          setUser(null);
         }
-      } else {
+      } catch (error) {
+        console.error("Auth State Change Error:", error);
         setUser(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return unsubscribe;
