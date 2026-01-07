@@ -1,6 +1,7 @@
 import React from 'react';
 import { Menu, X, FileText, Users, Home, Settings } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import logoImg from '../assets/images/logo.png';
 
 export const Navbar: React.FC = () => {

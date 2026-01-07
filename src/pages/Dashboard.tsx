@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Users, BookOpen, Clock, Calendar, ArrowRight, UserPlus, List } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
 import { MOCK_CLASSES } from '../utils/mockData';
 

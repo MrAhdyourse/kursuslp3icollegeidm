@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, FileSpreadsheet, Search, UserCheck, Award, Calendar, ChevronDown } from 'lucide-react';
 import { studentService } from '../services/studentService';
+import { useAuth } from '../context/AuthContext';
 import { generateStudentPDF, generateStudentExcel } from '../services/reportGenerator';
 import { StudentStatistics } from '../components/StudentStatistics';
 import { MOCK_REPORT, MOCK_STUDENTS } from '../utils/mockData';
 import type { Student, ComprehensiveReport } from '../types';
 
 const Reports: React.FC = () => {
-  const { user } = useAuth(); // Ambil user yang sedang login
+  const { user } = useAuth(); 
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [reportData, setReportData] = useState<ComprehensiveReport | null>(null);
@@ -17,16 +18,15 @@ const Reports: React.FC = () => {
     const loadData = async () => {
       if (user?.role === 'STUDENT') {
         // JIKA SISWA: Langsung set reportData pake data sendiri
-        // Ambil dari MOCK_REPORT tapi timpa datanya sesuai profil user login
         setReportData({
           ...MOCK_REPORT,
           student: {
-            ...MOCK_STUDENTS[0], // Ambil template
+            ...MOCK_STUDENTS[0],
             id: user.uid,
             name: user.displayName,
             email: user.email,
             avatarUrl: user.photoURL,
-            nis: 'TERDAFTAR', // NIS bisa diambil dari profil jika sudah ada fieldnya
+            nis: 'TERDAFTAR', 
           }
         });
       } else {
@@ -38,7 +38,31 @@ const Reports: React.FC = () => {
     loadData();
   }, [user]);
 
-  // ... (handleStudentSelect tetap sama)
+  // 2. Handle Pemilihan Siswa (Hanya untuk Instruktur)
+  const handleStudentSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const studentId = e.target.value;
+    setSelectedStudentId(studentId);
+
+    if (studentId) {
+      const selectedStudent = students.find(s => s.id === studentId);
+      if (selectedStudent) {
+        setReportData({
+          ...MOCK_REPORT,
+          student: selectedStudent
+        });
+      }
+    } else {
+      setReportData(null);
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    if (reportData) generateStudentPDF(reportData);
+  };
+
+  const handleDownloadExcel = () => {
+    if (reportData) generateStudentExcel(reportData);
+  };
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -86,16 +110,15 @@ const Reports: React.FC = () => {
       {!reportData && (
         <div className="flex flex-col items-center justify-center min-h-[400px] bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 animate-fade-in">
           <Search size={64} className="mb-4 text-slate-300" />
-          <h3 className="text-lg font-medium text-slate-600">Belum ada siswa dipilih</h3>
-          <p className="text-sm">Silakan pilih nama siswa di atas untuk menampilkan data.</p>
+          <h3 className="text-lg font-medium text-slate-600">Belum ada data dipilih</h3>
+          <p className="text-sm">Silakan pilih nama siswa untuk menampilkan data.</p>
         </div>
       )}
 
-      {/* REPORT CONTENT (Hanya muncul jika siswa dipilih) */}
+      {/* REPORT CONTENT */}
       {reportData && (
         <div className="animate-fade-in-up space-y-8">
           
-          {/* 1. STUDENT PROFILE & SUMMARY */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="bg-gradient-to-r from-brand-blue to-brand-dark p-6 text-white">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -119,7 +142,6 @@ const Reports: React.FC = () => {
               </div>
             </div>
 
-            {/* ACTION BUTTONS */}
             <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex flex-wrap justify-between items-center gap-4">
               <h3 className="text-lg font-semibold text-slate-700 flex items-center gap-2">
                 <UserCheck className="text-brand-blue" />
@@ -143,7 +165,6 @@ const Reports: React.FC = () => {
               </div>
             </div>
 
-            {/* 2. TABLE NILAI */}
             <div className="p-6">
                <div className="overflow-x-auto border border-slate-100 rounded-lg">
                 <table className="w-full text-sm text-left text-slate-600">
@@ -185,7 +206,6 @@ const Reports: React.FC = () => {
             </div>
           </div>
 
-          {/* 3. STATISTICS COMPONENT */}
           <StudentStatistics report={reportData} />
           
         </div>
