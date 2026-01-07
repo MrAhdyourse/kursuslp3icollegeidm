@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Mail, LogIn, AlertCircle } from 'lucide-react';
+import { Lock, Mail, LogIn, AlertCircle, User, GraduationCap, MessageCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
+type LoginMode = 'INSTRUCTOR' | 'STUDENT';
+
 const Login: React.FC = () => {
+  const [mode, setMode] = useState<LoginMode>('INSTRUCTOR');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -11,6 +14,13 @@ const Login: React.FC = () => {
   
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  // Konfigurasi Link WhatsApp
+  const waNumber = "628386705809";
+  const waMessage = encodeURIComponent(
+    `Halo Admin LP3I, saya ingin mengajukan pembuatan akun baru sebagai ${mode === 'INSTRUCTOR' ? 'Instruktur' : 'Peserta Didik'} untuk Sistem Kursus. Mohon bantuannya.`
+  );
+  const waLink = `https://wa.me/${waNumber}?text=${waMessage}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,30 +30,112 @@ const Login: React.FC = () => {
     const res = await login(email, password);
     
     if (res.success) {
-      navigate('/'); // Redirect ke Dashboard
+      navigate('/'); 
     } else {
-      setError(res.error || "Terjadi kesalahan saat login.");
+      setError(res.error || "Login gagal. Periksa kembali data Anda.");
     }
     setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-blue to-slate-900 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up">
+    <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden">
+      {/* Background Mewah (Animated Gradient) */}
+      <div className={`absolute inset-0 transition-colors duration-700 ease-in-out ${
+        mode === 'INSTRUCTOR' 
+          ? 'bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900' 
+          : 'bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900'
+      }`}></div>
+      
+      {/* Dekorasi Background */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-20 pointer-events-none">
+         <div className="absolute top-10 left-10 w-72 h-72 bg-white rounded-full mix-blend-overlay filter blur-3xl animate-pulse"></div>
+         <div className="absolute bottom-10 right-10 w-96 h-96 bg-white rounded-full mix-blend-overlay filter blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+      </div>
+
+      {/* Main Card */}
+      <div className="relative z-10 w-full max-w-5xl bg-white/10 backdrop-blur-2xl rounded-3xl shadow-2xl overflow-hidden border border-white/20 flex flex-col md:flex-row min-h-[600px] animate-fade-in-up">
         
-        {/* Header */}
-        <div className="bg-slate-50 p-8 text-center border-b border-slate-100">
-           <div className="w-16 h-16 bg-gradient-to-br from-brand-blue to-brand-dark rounded-xl mx-auto flex items-center justify-center text-white font-bold text-2xl shadow-lg mb-4">
-             LP3I
-           </div>
-           <h1 className="text-2xl font-bold text-slate-800">Selamat Datang</h1>
-           <p className="text-slate-500 mt-2 text-sm">Silakan masuk untuk mengakses Sistem Kursus</p>
+        {/* SIDEBAR KIRI: LOGO & VISUAL */}
+        <div className={`hidden md:flex flex-col justify-between p-12 w-[45%] text-white transition-colors duration-500 ${
+           mode === 'INSTRUCTOR' ? 'bg-blue-600/80' : 'bg-emerald-600/80'
+        }`}>
+          <div>
+            {/* LOGO AREA */}
+            <div className="bg-white p-4 rounded-2xl w-fit shadow-xl mb-10 group-hover:scale-105 transition-transform duration-500">
+               <img src="/logo.png" alt="LP3I Logo" className="h-20 w-auto object-contain" onError={(e) => {
+                 // Fallback jika logo belum diupload
+                 e.currentTarget.style.display = 'none';
+                 e.currentTarget.parentElement!.innerHTML = '<span class="text-brand-blue font-black text-3xl px-4">LP3I</span>';
+               }} />
+            </div>
+            
+            <h2 className="text-4xl font-bold leading-tight mb-4">
+              Sistem Informasi <br/> Kursus & Pelatihan
+            </h2>
+            <p className="text-white/80 text-lg font-light leading-relaxed">
+              Platform terintegrasi untuk manajemen pembelajaran, penilaian, dan pelaporan akademik yang presisi.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+             <div className="flex items-center gap-4 bg-black/20 p-4 rounded-xl border border-white/10">
+                <div className="p-3 bg-white/20 rounded-full">
+                  <User size={24} />
+                </div>
+                <div>
+                   <p className="text-xs text-white/60 uppercase tracking-wider">Dikembangkan Oleh</p>
+                   <p className="font-semibold">Ahdi Yourse</p>
+                </div>
+             </div>
+          </div>
         </div>
 
-        {/* Form */}
-        <div className="p-8">
+        {/* SIDEBAR KANAN: FORM LOGIN */}
+        <div className="flex-1 p-8 md:p-12 bg-white flex flex-col justify-center">
+          
+          {/* Header Mobile (Only show on mobile) */}
+          <div className="md:hidden mb-8 text-center">
+             <h1 className="text-2xl font-bold text-slate-800">Selamat Datang</h1>
+             <p className="text-slate-500">Silakan masuk ke akun Anda</p>
+          </div>
+
+          {/* TABS SWITCHER */}
+          <div className="flex bg-slate-100 p-1.5 rounded-xl mb-8 relative">
+             {/* Slider Animation Background */}
+             <div className={`absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-white rounded-lg shadow-sm transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+               mode === 'INSTRUCTOR' ? 'left-1.5' : 'left-[calc(50%+3px)]'
+             }`}></div>
+
+             <button 
+               onClick={() => setMode('INSTRUCTOR')}
+               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold relative z-10 transition-colors ${
+                 mode === 'INSTRUCTOR' ? 'text-blue-700' : 'text-slate-500 hover:text-slate-700'
+               }`}
+             >
+               <User size={18} />
+               Instruktur
+             </button>
+             <button 
+               onClick={() => setMode('STUDENT')}
+               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold relative z-10 transition-colors ${
+                 mode === 'STUDENT' ? 'text-emerald-700' : 'text-slate-500 hover:text-slate-700'
+               }`}
+             >
+               <GraduationCap size={18} />
+               Peserta Didik
+             </button>
+          </div>
+
+          {/* FORM */}
+          <div className="mb-8">
+            <h3 className={`text-xl font-bold mb-1 ${mode === 'INSTRUCTOR' ? 'text-blue-700' : 'text-emerald-700'}`}>
+              Login {mode === 'INSTRUCTOR' ? 'Instruktur' : 'Peserta'}
+            </h3>
+            <p className="text-slate-500 text-sm">Masukan kredensial akun Anda untuk melanjutkan.</p>
+          </div>
+
           {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg flex items-center gap-2 text-sm">
+            <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg flex items-center gap-2 text-sm animate-fade-in">
               <AlertCircle size={16} />
               {error}
             </div>
@@ -52,13 +144,17 @@ const Login: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Akun</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <div className="relative group">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-blue transition-colors" size={18} />
                 <input 
                   type="email" 
                   required
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-blue focus:border-brand-blue outline-none transition-all"
-                  placeholder="nama@lp3i.com"
+                  className={`w-full pl-10 pr-4 py-3.5 border bg-slate-50 rounded-xl focus:bg-white outline-none transition-all ${
+                    mode === 'INSTRUCTOR' 
+                    ? 'focus:ring-2 focus:ring-blue-100 focus:border-blue-500' 
+                    : 'focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500'
+                  }`}
+                  placeholder={mode === 'INSTRUCTOR' ? "admin@lp3i.com" : "siswa@lp3i.com"}
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                 />
@@ -67,12 +163,16 @@ const Login: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Kata Sandi</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <div className="relative group">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-blue transition-colors" size={18} />
                 <input 
                   type="password" 
                   required
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-blue focus:border-brand-blue outline-none transition-all"
+                  className={`w-full pl-10 pr-4 py-3.5 border bg-slate-50 rounded-xl focus:bg-white outline-none transition-all ${
+                    mode === 'INSTRUCTOR' 
+                    ? 'focus:ring-2 focus:ring-blue-100 focus:border-blue-500' 
+                    : 'focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500'
+                  }`}
                   placeholder="••••••••"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
@@ -83,7 +183,11 @@ const Login: React.FC = () => {
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full bg-brand-blue hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-200 active:scale-95 flex items-center justify-center gap-2"
+              className={`w-full text-white font-bold py-3.5 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 mt-4 ${
+                mode === 'INSTRUCTOR' 
+                  ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-200' 
+                  : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200'
+              }`}
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -96,13 +200,25 @@ const Login: React.FC = () => {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-xs text-slate-400">
-              Lupa password? Hubungi Administrator Pusat.<br/>
-              &copy; {new Date().getFullYear()} LP3I College Indramayu
-            </p>
+          {/* FOOTER LINK WA */}
+          <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col items-center gap-3">
+            <p className="text-sm text-slate-500">Belum memiliki akun?</p>
+            <a 
+              href={waLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-green-600 transition-colors px-4 py-2 rounded-full hover:bg-green-50"
+            >
+              <MessageCircle size={18} className="text-green-500" />
+              Hubungi Admin via WhatsApp
+            </a>
           </div>
+
         </div>
+      </div>
+
+      <div className="absolute bottom-4 text-white/30 text-xs">
+        &copy; {new Date().getFullYear()} LP3I College Indramayu. All Rights Reserved.
       </div>
     </div>
   );

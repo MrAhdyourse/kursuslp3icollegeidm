@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SplashScreen } from './components/SplashScreen';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -13,19 +15,24 @@ import Login from './pages/Login';
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const [showSplash, setShowSplash] = useState(true); // Default tampilkan splash
 
   if (loading) {
-    // Tampilkan Loading Screen saat cek auth
+    // Tampilkan Loading Screen polos saat cek auth firebase (sebelum splash)
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-blue"></div>
+      <div className="h-screen w-full flex items-center justify-center bg-slate-900">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white/50"></div>
       </div>
     );
   }
 
   if (!user) {
-    // Belum login? Tendang ke halaman login
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Jika user ada, dan splash masih aktif, tampilkan Splash dulu
+  if (showSplash) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
   }
 
   return children;

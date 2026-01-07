@@ -23,11 +23,14 @@ export const Navbar: React.FC = () => {
           
           {/* Logo / Brand Section */}
           <Link to="/" className="flex items-center space-x-3 rtl:space-x-reverse group">
-            <div className="bg-white p-1.5 rounded-lg shadow-md group-hover:scale-105 transition-transform duration-300">
-              {/* Placeholder Logo - Bisa diganti img src logo asli nanti */}
-              <div className="w-8 h-8 bg-gradient-to-br from-brand-blue to-brand-dark rounded flex items-center justify-center text-white font-bold text-xs">
-                LP3I
-              </div>
+            <div className="bg-white p-1 rounded-lg shadow-md group-hover:scale-105 transition-transform duration-300">
+              <img src="/logo.png" alt="Logo" className="w-9 h-9 object-contain" onError={(e) => {
+                 e.currentTarget.style.display = 'none';
+                 const fallback = document.createElement('div');
+                 fallback.className = "w-8 h-8 bg-gradient-to-br from-brand-blue to-brand-dark rounded flex items-center justify-center text-white font-bold text-xs";
+                 fallback.innerText = "LP3I";
+                 e.currentTarget.parentElement!.appendChild(fallback);
+              }} />
             </div>
             <div className="flex flex-col">
               <span className="self-center text-xl font-bold whitespace-nowrap text-white tracking-wide">
