@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Mail, LogIn, AlertCircle, User, GraduationCap, MessageCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import logoImg from '../assets/images/logo.png';
 
 type LoginMode = 'INSTRUCTOR' | 'STUDENT';
 
@@ -62,7 +63,7 @@ const Login: React.FC = () => {
           <div>
             {/* LOGO AREA - PREMIUM DISPLAY */}
             <div className="bg-white p-6 rounded-2xl w-fit shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] mb-10 group-hover:scale-105 transition-transform duration-500 relative z-10">
-               <img src="/logo.png" alt="LP3I Logo" className="h-20 w-auto object-contain drop-shadow-md" />
+               <img src={logoImg} alt="LP3I Logo" className="h-20 w-auto object-contain drop-shadow-md" />
             </div>
             
             <h2 className="text-4xl font-bold leading-tight mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-100 to-white drop-shadow-sm">

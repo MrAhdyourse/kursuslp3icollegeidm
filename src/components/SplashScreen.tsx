@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import landingImg from '../assets/images/landingutama.JPG';
+import logoImg from '../assets/images/logo.png';
 
 interface SplashScreenProps {
   onFinish: () => void;
@@ -49,7 +51,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
       {/* BACKGROUND IMAGE - Full Screen */}
       <div className="absolute inset-0 z-0">
         <img 
-          src="/landingutama.JPG" 
+          src={landingImg} 
           alt="Background" 
           className="w-full h-full object-cover opacity-60 scale-105 animate-[pulse_10s_ease-in-out_infinite]"
           onError={(e) => {
@@ -68,7 +70,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
         {/* Logo Animation */}
         <div className="mb-12 relative">
            <div className="absolute inset-0 bg-blue-500 blur-[60px] opacity-20 rounded-full animate-pulse"></div>
-           <img src="/logo.png" alt="LP3I" className="h-24 w-auto relative drop-shadow-2xl" />
+           <img src={logoImg} alt="LP3I" className="h-24 w-auto relative drop-shadow-2xl" />
         </div>
 
         {/* Loading Bar Container */}
