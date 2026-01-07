@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  User, Camera, CreditCard, 
-  BadgeCheck, BookOpen, Layers, ListOrdered, Plus, Trash2, Settings2 
+  Camera, CreditCard, BadgeCheck, BookOpen, Layers, 
+  ListOrdered, Plus, Trash2, LogOut, Save
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
@@ -11,44 +11,49 @@ import { db } from '../services/firebase';
 const Settings: React.FC = () => {
   const { user, logout } = useAuth();
   
-  // --- STATE AKUN ---
+  // --- States ---
   const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState('');
-  const [loadingAccount, setLoadingAccount] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
-
-  // --- STATE MASTER DATA ---
   const [courses, setCourses] = useState<any[]>([]);
   const [newCourse, setNewCourse] = useState('');
 
   useEffect(() => {
-    if (user) setDisplayName(user.displayName || '');
-    if (user?.role === 'INSTRUCTOR') fetchMasterData();
+    if (user) {
+      setDisplayName(user.displayName || '');
+      if (user.role === 'INSTRUCTOR') fetchCourses();
+    }
   }, [user]);
 
-  const fetchMasterData = async () => {
-    const querySnapshot = await getDocs(collection(db, "course_types"));
-    const list = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    setCourses(list);
+  const fetchCourses = async () => {
+    try {
+      const snap = await getDocs(collection(db, "course_types"));
+      setCourses(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (e) { console.error(e); }
   };
 
   const handleAddCourse = async () => {
     if (!newCourse) return;
+    setLoading(true);
     await addDoc(collection(db, "course_types"), { name: newCourse, createdAt: Date.now() });
     setNewCourse('');
-    fetchMasterData();
+    await fetchCourses();
+    setLoading(false);
   };
 
   const handleDeleteCourse = async (id: string) => {
     if (!confirm("Hapus kursus ini?")) return;
+    setLoading(true);
     await deleteDoc(doc(db, "course_types", id));
-    fetchMasterData();
+    await fetchCourses();
+    setLoading(false);
   };
 
-  const handleSaveAccount = async (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.uid) return;
-    setLoadingAccount(true);
+    setLoading(true);
     try {
       let urlFoto = user?.photoURL || '';
       if (photoFile) {
@@ -58,181 +63,176 @@ const Settings: React.FC = () => {
       await setDoc(doc(db, 'users', user.uid), { displayName, photoURL: urlFoto }, { merge: true });
       window.location.reload();
     } catch (err) { alert('Gagal simpan profil.'); }
-    finally { setLoadingAccount(false); }
+    finally { setLoading(false); }
   };
 
-  if (!user) return <div className="p-20 text-center animate-pulse">Memuat...</div>;
+  if (!user) return <div className="p-20 text-center animate-pulse text-slate-400 tracking-widest">SINKRONISASI...</div>;
 
   return (
-    <div className="max-w-6xl mx-auto pb-20 animate-fade-in space-y-12">
+    <div className="max-w-7xl mx-auto pb-20 animate-fade-in px-4">
       
-      {/* 1. MASTER DATA CONTROL (Hanya Instruktur) */}
-      {user.role === 'INSTRUCTOR' && (
-        <section className="space-y-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-blue-600 rounded-lg text-white">
-              <Settings2 size={24} />
-            </div>
-            <div>
-              <h2 className="text-2xl font-black text-slate-800 tracking-tight">Manajemen Kursus & Kurikulum</h2>
-              <p className="text-sm text-slate-500">Atur jenis kursus, materi, dan total sesi belajar.</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* BOX 1: JENIS KURSUS */}
-            <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 overflow-hidden">
-               <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
-                  <BookOpen size={18} className="text-blue-600" />
-                  <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest">Daftar Kursus</h3>
-               </div>
-               
-               <div className="space-y-3 mb-6 max-h-[200px] overflow-y-auto pr-2">
-                  {courses.map(c => (
-                    <div key={c.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl group hover:bg-red-50 transition-colors">
-                       <span className="text-sm font-bold text-slate-700">{c.name}</span>
-                       <button onClick={() => handleDeleteCourse(c.id)} className="text-slate-300 hover:text-red-600 transition-colors">
-                          <Trash2 size={14} />
-                       </button>
-                    </div>
-                  ))}
-               </div>
-
-               <div className="flex gap-2">
-                  <input 
-                    type="text" 
-                    placeholder="Nama Kursus Baru..." 
-                    className="flex-1 px-4 py-2 bg-slate-100 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/20"
-                    value={newCourse}
-                    onChange={e => setNewCourse(e.target.value)}
-                  />
-                  <button onClick={handleAddCourse} className="p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all">
-                    <Plus size={20} />
-                  </button>
-               </div>
-            </div>
-
-            {/* BOX 2: TOTAL SESI & LEVEL */}
-            <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 flex flex-col justify-center items-center text-center">
-               <Layers size={32} className="text-slate-300 mb-4" />
-               <h3 className="font-bold text-slate-800 text-sm mb-2">Pengaturan Sesi</h3>
-               <p className="text-xs text-slate-500 mb-4">Level 1: 12 Sesi | Level 2: 12 Sesi | Level 3: 16 Sesi</p>
-               <button className="text-[10px] font-black tracking-widest uppercase bg-slate-900 text-white px-4 py-2 rounded-full hover:bg-blue-600 transition-all">
-                  Modifikasi Sesi
-               </button>
-            </div>
-
-            {/* BOX 3: MATERI PEMBELAJARAN */}
-            <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 flex flex-col justify-center items-center text-center">
-               <ListOrdered size={32} className="text-slate-300 mb-4" />
-               <h3 className="font-bold text-slate-800 text-sm mb-2">Kurikulum Materi</h3>
-               <p className="text-xs text-slate-500 mb-4">Kelola daftar materi yang dipelajari per tingkatan.</p>
-               <button className="text-[10px] font-black tracking-widest uppercase bg-slate-900 text-white px-4 py-2 rounded-full hover:bg-blue-600 transition-all">
-                  Atur Materi
-               </button>
-            </div>
-
-          </div>
-        </section>
-      )}
-
-      {/* 2. AKUN & LISENSI (Sudah Ada - Dibuat Lebih Compact) */}
-      <section className="pt-8 border-t border-slate-200">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="p-2 bg-slate-900 rounded-lg text-white">
-            <User size={24} />
-          </div>
-          <div>
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Akun & Lisensi Digital</h2>
-            <p className="text-sm text-slate-500">Informasi profil dan verifikasi akun pengguna.</p>
-          </div>
+      {/* 1. TOP BAR - MINIMALIST */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-4">
+        <div>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tight">Executive Panel</h1>
+          <p className="text-slate-500 font-medium">Manajemen identitas dan kontrol kurikulum sistem.</p>
         </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          {/* BAGIAN KIRI: CARD ID (KODE SAMA SEPERTI SEBELUMNYA) */}
-          <div className="lg:col-span-5 xl:col-span-4">
-             <div className="relative bg-gradient-to-br from-slate-900 via-[#0f172a] to-slate-900 rounded-3xl p-8 text-white shadow-2xl overflow-hidden min-h-[450px] flex flex-col border border-white/10">
-                <div className="flex justify-between items-start z-10 mb-8">
-                   <div className="flex items-center gap-2">
-                      <CreditCard className="text-blue-400" size={24} />
-                      <span className="text-[10px] font-black tracking-[0.4em] text-blue-200 uppercase">LP3I Digital ID</span>
-                   </div>
-                </div>
-                <div className="flex flex-col items-center z-10 flex-1 justify-center">
-                   <div className="relative">
-                      <div className="w-32 h-32 rounded-[2rem] p-1 bg-gradient-to-b from-blue-500 to-transparent shadow-2xl mb-6 overflow-hidden">
-                         <img src={user.photoURL || ''} alt="Profile" className="w-full h-full object-cover rounded-[1.8rem] bg-slate-800" />
-                      </div>
-                      <div className="absolute -bottom-2 -right-2 bg-emerald-500 p-1.5 rounded-xl border-4 border-slate-900 shadow-lg">
-                         <BadgeCheck size={18} className="text-white" />
-                      </div>
-                   </div>
-                   <h2 className="text-2xl font-black tracking-tight text-center">{user.displayName || 'No Name'}</h2>
-                   <div className="mt-2 px-4 py-1 bg-blue-600/20 rounded-full border border-blue-500/30 text-[10px] font-black uppercase text-blue-300">{user.role}</div>
-                </div>
-                <div className="z-10 mt-10 pt-6 border-t border-white/5 flex justify-between items-end">
-                   <div className="space-y-1">
-                      <p className="text-[8px] text-white/30 uppercase tracking-widest font-bold">Member UID</p>
-                      <p className="text-xs font-mono text-blue-100">{user.uid.slice(0, 16)}...</p>
-                   </div>
-                   <p className="text-xs font-black text-emerald-400">{user.status}</p>
-                </div>
-             </div>
-          </div>
-
-          {/* BAGIAN KANAN: FORM (KODE SAMA SEPERTI SEBELUMNYA) */}
-          <div className="lg:col-span-7 xl:col-span-8">
-             <div className="bg-white rounded-[2rem] border border-slate-200 p-10 shadow-sm">
-                <form onSubmit={handleSaveAccount} className="space-y-8">
-                   <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Informasi Profil</h3>
-                      {!isEditing && <button type="button" onClick={() => setIsEditing(true)} className="text-blue-600 font-bold text-xs">UBAH DATA</button>}
-                   </div>
-                   
-                   {isEditing && (
-                      <div className="p-4 bg-blue-50 rounded-2xl border-2 border-dashed border-blue-200 flex items-center gap-4">
-                         <Camera size={24} className="text-blue-600" />
-                         <input type="file" onChange={e => setPhotoFile(e.target.files ? e.target.files[0] : null)} className="text-xs text-slate-500" />
-                      </div>
-                   )}
-
-                   <div className="space-y-6">
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Lengkap</label>
-                         <input 
-                           type="text" 
-                           value={displayName} 
-                           onChange={e => setDisplayName(e.target.value)} 
-                           readOnly={!isEditing}
-                           className={`w-full px-5 py-4 rounded-2xl border transition-all font-bold ${isEditing ? 'border-slate-300 focus:ring-4 focus:ring-blue-500/10' : 'bg-slate-50 border-transparent text-slate-500'}`} 
-                         />
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Alamat Email</label>
-                         <input type="text" value={user.email} readOnly className="w-full px-5 py-4 rounded-2xl bg-slate-50 text-slate-400 font-bold border-transparent" />
-                      </div>
-                   </div>
-
-                   {isEditing && (
-                      <div className="flex gap-4 pt-4">
-                         <button type="submit" disabled={loadingAccount} className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-blue-200 hover:bg-blue-700">
-                            {loadingAccount ? 'MENYIMPAN...' : 'SIMPAN PERUBAHAN'}
-                         </button>
-                         <button type="button" onClick={() => setIsEditing(false)} className="px-8 py-4 text-slate-500 font-bold">BATAL</button>
-                      </div>
-                   )}
-                </form>
-             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FOOTER LOGOUT UNTUK MOBILE */}
-      <div className="md:hidden pt-10">
-         <button onClick={logout} className="w-full py-4 bg-red-50 text-red-600 rounded-2xl font-black border border-red-100">LOGOUT DARI SISTEM</button>
+        <button 
+          onClick={logout}
+          className="flex items-center gap-2 px-6 py-3 bg-red-50 text-red-600 rounded-2xl font-bold hover:bg-red-100 transition-all active:scale-95"
+        >
+          <LogOut size={18} /> Sign Out
+        </button>
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        
+        {/* KOLOM KIRI: IDENTITAS (VIP STYLE) */}
+        <div className="lg:col-span-4 space-y-8">
+           <div className="bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden border border-white/5 group">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl"></div>
+              
+              <div className="flex justify-between items-start mb-10">
+                 <div className="flex items-center gap-2">
+                    <CreditCard className="text-blue-400" size={24} />
+                    <span className="text-[10px] font-black tracking-[0.4em] text-blue-200 uppercase">Digital Pass</span>
+                 </div>
+                 <div className="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-[8px] font-black rounded-full border border-emerald-500/30 uppercase tracking-widest">Active</div>
+              </div>
+
+              <div className="flex flex-col items-center mb-10">
+                 <div className="relative mb-6">
+                    <div className="w-32 h-32 rounded-full p-1 bg-gradient-to-tr from-blue-500 via-cyan-300 to-blue-600 shadow-2xl">
+                       <img src={user.photoURL || ''} alt="Profile" className="w-full h-full object-cover rounded-full bg-slate-800 border-4 border-[#0f172a]" />
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 bg-blue-600 p-2 rounded-xl border-4 border-[#0f172a]">
+                       <BadgeCheck size={16} className="text-white" />
+                    </div>
+                 </div>
+                 <h2 className="text-2xl font-black text-center tracking-tight">{user.displayName || 'No Name'}</h2>
+                 <p className="text-blue-300/60 text-xs font-bold uppercase tracking-widest mt-1">{user.role}</p>
+              </div>
+
+              <div className="space-y-4 pt-8 border-t border-white/5">
+                 <div className="flex justify-between items-center">
+                    <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Credential ID</span>
+                    <span className="text-xs font-mono text-blue-100">{user.uid.slice(0, 12).toUpperCase()}</span>
+                 </div>
+                 <div className="flex justify-between items-center">
+                    <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">License</span>
+                    <span className="text-[10px] font-black text-emerald-400 tracking-widest">VIP ENTERPRISE</span>
+                 </div>
+              </div>
+           </div>
+
+           {/* EDIT PROFILE FORM - MINIMALIST */}
+           <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm">
+              <div className="flex justify-between items-center mb-6">
+                 <h3 className="font-black text-slate-800 text-sm uppercase tracking-widest">Edit Profil</h3>
+                 {!isEditing && <button onClick={() => setIsEditing(true)} className="text-blue-600 font-bold text-xs hover:underline">UBAH</button>}
+              </div>
+              
+              <form onSubmit={handleSaveProfile} className="space-y-5">
+                 {isEditing && (
+                    <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                       <Camera size={20} className="text-slate-400" />
+                       <input type="file" onChange={e => setPhotoFile(e.target.files ? e.target.files[0] : null)} className="text-[10px] text-slate-500" />
+                    </div>
+                 )}
+                 <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nama Lengkap</label>
+                    <input 
+                      type="text" 
+                      value={displayName} 
+                      onChange={e => setDisplayName(e.target.value)} 
+                      readOnly={!isEditing}
+                      className={`w-full px-4 py-3 rounded-xl border text-sm font-bold transition-all ${isEditing ? 'border-blue-200 focus:ring-4 focus:ring-blue-500/5' : 'border-transparent bg-slate-50 text-slate-500'}`} 
+                    />
+                 </div>
+                 {isEditing && (
+                    <button type="submit" disabled={loading} className="w-full py-3 bg-slate-900 text-white rounded-xl font-black text-xs shadow-lg flex justify-center items-center gap-2">
+                       <Save size={14} /> {loading ? 'SAVING...' : 'SIMPAN PERUBAHAN'}
+                    </button>
+                 )}
+              </form>
+           </div>
+        </div>
+
+        {/* KOLOM KANAN: MASTER DATA (ADMIN ONLY) */}
+        <div className="lg:col-span-8 space-y-8">
+           {user.role === 'INSTRUCTOR' && (
+             <>
+               {/* MODUL 1: MANAJEMEN KURSUS */}
+               <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="px-10 py-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                     <div className="flex items-center gap-4">
+                        <div className="p-3 bg-blue-600 rounded-2xl text-white shadow-lg shadow-blue-200">
+                           <BookOpen size={20} />
+                        </div>
+                        <div>
+                           <h3 className="font-black text-slate-800 text-xl">Daftar Kursus</h3>
+                           <p className="text-xs text-slate-500">Kelola varian program pendidikan LP3I.</p>
+                        </div>
+                     </div>
+                  </div>
+                  
+                  <div className="p-10">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                        {courses.map(c => (
+                          <div key={c.id} className="flex justify-between items-center p-5 bg-white border border-slate-100 rounded-2xl hover:border-blue-200 hover:shadow-md transition-all group">
+                             <div className="flex items-center gap-3">
+                                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                <span className="text-sm font-black text-slate-700">{c.name}</span>
+                             </div>
+                             <button onClick={() => handleDeleteCourse(c.id)} className="opacity-0 group-hover:opacity-100 p-2 text-red-400 hover:bg-red-50 rounded-lg transition-all">
+                                <Trash2 size={16} />
+                             </button>
+                          </div>
+                        ))}
+                     </div>
+
+                     <div className="flex gap-3 bg-slate-900 p-2 rounded-2xl shadow-xl">
+                        <input 
+                          type="text" 
+                          placeholder="Ketik Nama Kursus Baru..." 
+                          className="flex-1 px-6 py-3 bg-transparent text-white text-sm font-bold outline-none"
+                          value={newCourse}
+                          onChange={e => setNewCourse(e.target.value)}
+                        />
+                        <button onClick={handleAddCourse} disabled={loading} className="px-6 py-3 bg-blue-600 text-white rounded-xl font-black text-xs hover:bg-blue-500 transition-all flex items-center gap-2">
+                           <Plus size={18} /> TAMBAH
+                        </button>
+                     </div>
+                  </div>
+               </div>
+
+               {/* MODUL 2 & 3: QUICK CONTROLS */}
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="bg-white rounded-[2.5rem] border border-slate-200 p-8 flex items-center gap-6 group hover:border-blue-400 transition-all cursor-pointer">
+                     <div className="p-5 bg-slate-100 rounded-[2rem] text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-all">
+                        <Layers size={32} />
+                     </div>
+                     <div>
+                        <h4 className="font-black text-slate-800 uppercase tracking-widest text-xs mb-1">Pengaturan Sesi</h4>
+                        <p className="text-xs text-slate-500">Konfigurasi total pertemuan per level.</p>
+                     </div>
+                  </div>
+
+                  <div className="bg-white rounded-[2.5rem] border border-slate-200 p-8 flex items-center gap-6 group hover:border-blue-400 transition-all cursor-pointer">
+                     <div className="p-5 bg-slate-100 rounded-[2rem] text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-all">
+                        <ListOrdered size={32} />
+                     </div>
+                     <div>
+                        <h4 className="font-black text-slate-800 uppercase tracking-widest text-xs mb-1">Update Kurikulum</h4>
+                        <p className="text-xs text-slate-500">Modifikasi daftar materi per tingkatan.</p>
+                     </div>
+                  </div>
+               </div>
+             </>
+           )}
+        </div>
+
+      </div>
     </div>
   );
 };
