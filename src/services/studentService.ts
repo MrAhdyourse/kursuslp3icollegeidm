@@ -9,8 +9,7 @@ import {
   where,
   orderBy
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "./firebase";
+import { db } from "./firebase";
 import type { Student, MeetingRecord } from "../types";
 
 const STUDENTS_COLLECTION = "students";
@@ -53,23 +52,31 @@ export const studentService = {
     }
   },
 
-  async uploadStudentPhoto(file: File, fileName: string, folderName: string = 'students') {
-    console.log(`Uploading to ${folderName}...`);
-    try {
-      const timestamp = Date.now();
-      const safeName = fileName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-      // Langsung ke folder target tanpa subfolder uploads
-      const path = `${folderName}/${safeName}_${timestamp}`;
+  /**
+   * Mengonversi Foto jadi Teks Base64 (Anti-CORS & Instan)
+   */
+  async uploadStudentPhoto(file: File, _fileName: string, _folderName: string = 'students') {
+    return new Promise<{ success: boolean; url?: string; error?: string }>((resolve) => {
+      const reader = new FileReader();
       
-      const storageRef = ref(storage, path);
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      
-      return { success: true, url: downloadURL };
-    } catch (error: any) {
-      console.error("Storage Error:", error);
-      return { success: false, error: error.message };
-    }
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        
+        // Proteksi: Firestore punya limit 1MB per dokumen.
+        // Kita limit agar foto yang diupload tidak lebih dari ~600KB setelah jadi teks.
+        if (base64String.length > 800000) {
+          resolve({ success: false, error: "Ukuran foto terlalu besar. Silakan gunakan foto yang lebih kecil (di bawah 500KB)." });
+        } else {
+          resolve({ success: true, url: base64String });
+        }
+      };
+
+      reader.onerror = () => {
+        resolve({ success: false, error: "Gagal membaca file foto." });
+      };
+
+      reader.readAsDataURL(file);
+    });
   },
 
   async getAllStudents() {
