@@ -15,10 +15,13 @@ import Login from './pages/Login';
 
 // Komponen Penjaga Pintu (Guard)
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  // ... (kode sama)
   const { user, loading } = useAuth();
   const location = useLocation();
-  const [showSplash, setShowSplash] = useState(true);
+  
+  // Cek apakah splash sudah pernah tampil di sesi ini
+  const [showSplash, setShowSplash] = useState(() => {
+    return !sessionStorage.getItem('splash_shown');
+  });
 
   if (loading) {
     return (
@@ -33,7 +36,14 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (showSplash) {
-    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+    return (
+      <SplashScreen 
+        onFinish={() => {
+          sessionStorage.setItem('splash_shown', 'true');
+          setShowSplash(false);
+        }} 
+      />
+    );
   }
 
   return children;

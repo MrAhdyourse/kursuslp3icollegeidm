@@ -1,79 +1,80 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, LogOut, Camera, Save, ShieldCheck, CreditCard, Activity, BadgeCheck, Smartphone } from 'lucide-react';
+import { User, Mail, LogOut, Camera, Save, ShieldCheck, CreditCard, Activity, BadgeCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore'; 
 import { auth, db } from '../services/firebase';
 
 const Settings: React.FC = () => {
   const { user, logout } = useAuth();
   
-  // State Lokal
   const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
 
-  // Efek: Sinkron data user ke form saat user ready
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || '');
     }
   }, [user]);
 
-  // Fungsi Simpan (Proteksi Super Ketat)
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Fallback: Jika di context kosong, ambil langsung dari Firebase Auth Native
-    const currentUid = user?.uid || auth.currentUser?.uid;
+    // Ambil UID terbaru dari Firebase Auth langsung untuk kepastian 100%
+    const currentUid = auth.currentUser?.uid || user?.uid;
     
     if (!currentUid) {
-      alert("Error Kritis: UID Pengguna tidak ditemukan. Silakan login ulang.");
+      alert("Gagal mendeteksi identitas. Silakan login ulang.");
       return;
     }
     
     setLoading(true);
 
     try {
-      let urlFoto = user?.photoURL;
+      let urlFoto = user?.photoURL || '';
 
-      // 1. Upload jika ada file baru
+      // 1. Upload Foto Profil Baru
       if (photoFile) {
         const res = await studentService.uploadStudentPhoto(photoFile, `USER_${currentUid}`, 'users');
         if (res.success && res.url) {
           urlFoto = res.url;
+        } else {
+          throw new Error("Gagal mengunggah foto. Periksa aturan Firebase Storage Anda.");
         }
       }
 
-      // 2. Update DB
-      await updateDoc(doc(db, 'users', currentUid), {
+      // 2. Simpan Data ke Firestore (Gunakan mode Merge agar tidak menimpa data lain)
+      const userRef = doc(db, 'users', currentUid);
+      await setDoc(userRef, {
         displayName: displayName,
-        photoURL: urlFoto
-      });
+        photoURL: urlFoto,
+        uid: currentUid,
+        updatedAt: Date.now()
+      }, { merge: true });
 
-      // 3. Refresh halaman
+      alert("Profil berhasil diperbarui!");
       window.location.reload();
 
-    } catch (err) {
-      console.error("Save Profile Error:", err);
-      alert('Terjadi kendala saat menyimpan data.');
+    } catch (err: any) {
+      console.error("Save Error:", err);
+      alert(`Gagal menyimpan: ${err.message || 'Izin ditolak (cek Firestore Rules)'}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // --- TAMPILAN LOADING ---
   if (!user) {
     return (
       <div className="max-w-6xl mx-auto p-8 text-center animate-pulse">
         <div className="h-64 bg-slate-100 rounded-3xl mb-6"></div>
-        <p className="text-slate-400 font-medium tracking-widest uppercase">Sinkronisasi Data...</p>
+        <p className="text-slate-400 font-bold tracking-[0.3em] uppercase">Sinkronisasi Digital ID...</p>
       </div>
     );
   }
 
-  const safeUID = user.uid || "NON-REGISTERED";
+  const displayUid = user.uid || auth.currentUser?.uid || "N/A";
 
   return (
     <div className="max-w-6xl mx-auto pb-16 animate-fade-in">
@@ -81,10 +82,10 @@ const Settings: React.FC = () => {
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-slate-200 pb-8 mb-10 gap-4">
         <div>
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight font-sans">Akun & Lisensi</h1>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tight">Akun & Lisensi</h1>
           <p className="text-slate-500 mt-2 flex items-center gap-2 font-medium">
             <ShieldCheck size={18} className="text-blue-600" />
-            Pengaturan Profil & Keamanan Sistem
+            Pusat Kendali Identitas Digital
           </p>
         </div>
         <button 
@@ -92,18 +93,18 @@ const Settings: React.FC = () => {
           className="group flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-2xl text-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all font-bold shadow-sm active:scale-95"
         >
           <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
-          Keluar Sesi
+          Log Out
         </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         
-        {/* KOLOM KIRI: CARD ID */}
+        {/* KIRI: DIGITAL CARD */}
         <div className="lg:col-span-5 xl:col-span-4">
-           <div className="relative group">
+           <div className="relative group perspective-1000">
               <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-400 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
               
-              <div className="relative bg-gradient-to-br from-slate-900 via-[#0f172a] to-slate-900 rounded-3xl p-8 text-white shadow-2xl overflow-hidden min-h-[450px] flex flex-col border border-white/10">
+              <div className="relative bg-gradient-to-br from-slate-900 via-[#0f172a] to-slate-900 rounded-3xl p-8 text-white shadow-2xl overflow-hidden min-h-[450px] flex flex-col border border-white/10 transition-transform duration-500 hover:rotate-y-2">
                  <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
                  <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
 
@@ -135,18 +136,18 @@ const Settings: React.FC = () => {
                        </div>
                     </div>
                     
-                    <h2 className="text-2xl font-black tracking-tight text-center mb-1">{user.displayName || 'No Name'}</h2>
+                    <h2 className="text-2xl font-black tracking-tight text-center mb-1 uppercase">{user.displayName || 'No Name'}</h2>
                     <div className="px-4 py-1.5 bg-blue-600/20 backdrop-blur-md rounded-full border border-blue-500/30">
-                       <span className="text-[10px] font-black tracking-[0.2em] uppercase text-blue-300">{user.role || 'GUEST'}</span>
+                       <span className="text-[10px] font-black tracking-[0.2em] uppercase text-blue-300">{user.role || 'MEMBER'}</span>
                     </div>
                  </div>
 
                  <div className="z-10 mt-10 space-y-4 pt-6 border-t border-white/5">
                     <div className="flex justify-between items-end">
                        <div className="space-y-1">
-                          <p className="text-[8px] text-white/30 uppercase tracking-widest font-bold">Identification Number</p>
-                          <p className="text-sm font-mono tracking-tighter text-blue-100">
-                             {safeUID.slice(0, 4)} • {safeUID.slice(4, 8)} • {safeUID.slice(8, 12)}
+                          <p className="text-[8px] text-white/30 uppercase tracking-widest font-bold">Identification Code</p>
+                          <p className="text-sm font-mono tracking-tighter text-blue-100 uppercase">
+                             {displayUid.slice(0, 12)}...
                           </p>
                        </div>
                        <div className="text-right space-y-1">
@@ -159,20 +160,20 @@ const Settings: React.FC = () => {
            </div>
         </div>
 
-        {/* KOLOM KANAN: EDITOR */}
+        {/* KANAN: EDITOR */}
         <div className="lg:col-span-7 xl:col-span-8">
            <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden h-full flex flex-col">
               <div className="px-10 py-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                  <div>
                     <h3 className="font-black text-slate-800 text-xl tracking-tight">Informasi Personal</h3>
-                    <p className="text-xs text-slate-500 mt-1 font-medium">Pastikan data Anda selalu sinkron dengan sistem pusat.</p>
+                    <p className="text-xs text-slate-500 mt-1 font-medium">Update data diri Anda untuk sinkronisasi sistem.</p>
                  </div>
                  {!isEditing && (
                    <button 
                     onClick={() => setIsEditing(true)} 
                     className="text-sm font-bold bg-slate-900 text-white px-6 py-2.5 rounded-xl hover:bg-blue-700 transition-all shadow-md active:scale-95"
                    >
-                     Ubah Profil
+                     Edit Profil
                    </button>
                  )}
               </div>
@@ -186,7 +187,7 @@ const Settings: React.FC = () => {
                              <Camera size={32} />
                           </div>
                           <div className="flex-1">
-                             <label className="text-sm font-black text-slate-800 block mb-1 uppercase tracking-wide">Foto Profil Baru</label>
+                             <label className="text-sm font-black text-slate-800 block mb-1 uppercase tracking-wide">Upload Foto Profil</label>
                              <input 
                                type="file" 
                                accept="image/*"
@@ -220,18 +221,6 @@ const Settings: React.FC = () => {
                             value={user.email || ''}
                             readOnly
                             className="w-full px-5 py-4 rounded-2xl border border-transparent bg-slate-50 text-slate-500 cursor-not-allowed outline-none font-mono text-sm font-bold"
-                          />
-                       </div>
-
-                       <div className="space-y-2">
-                          <label className="text-xs font-black text-slate-500 uppercase tracking-[0.1em] flex items-center gap-2">
-                            <Smartphone size={14} className="text-blue-600" /> UID Sistem
-                          </label>
-                          <input 
-                            type="text"
-                            value={user.uid || ''}
-                            readOnly
-                            className="w-full px-5 py-4 rounded-2xl border border-transparent bg-slate-50 text-slate-400 cursor-not-allowed outline-none font-mono text-[10px] tracking-[0.2em]"
                           />
                        </div>
                     </div>
@@ -269,9 +258,9 @@ const Settings: React.FC = () => {
               
               <div className="bg-slate-900 px-10 py-5 flex justify-between items-center text-[10px]">
                  <span className="flex items-center gap-2 text-slate-400 font-bold tracking-widest uppercase">
-                   <Activity size={14} className="text-emerald-500" /> Operational Stable
+                   <Activity size={14} className="text-emerald-500" /> System Secure & Stable
                  </span>
-                 <span className="text-slate-500 font-black tracking-widest uppercase">v1.5.0 LP3I Edition</span>
+                 <span className="text-slate-500 font-black tracking-widest uppercase">v1.9.0 Final Core</span>
               </div>
            </div>
         </div>
