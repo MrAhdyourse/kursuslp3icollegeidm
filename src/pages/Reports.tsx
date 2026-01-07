@@ -66,7 +66,7 @@ const Reports: React.FC = () => {
 
       generateStudentPDF(reportData, {
         name: "LP3I COLLEGE INDRAMAYU",
-        address: "Jalan Jend. Sudirman No. 123, Indramayu, Jawa Barat",
+        address: "Jl. Pahlawan No.9, Lemahmekar, Kec. Indramayu, Kabupaten Indramayu, Jawa Barat 45212",
         logoUrl: "",
         headOfInstitution: "H. Fulan bin Fulan, M.Kom",
         instructorName: instructorName
