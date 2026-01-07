@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import landingImg from '../assets/images/landingutama.JPG';
+import landingImg from '../assets/images/landingutama.jpg';
 import logoImg from '../assets/images/logo.png';
 
 interface SplashScreenProps {
