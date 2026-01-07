@@ -35,7 +35,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const docSnap = await getDoc(docRef);
 
           if (docSnap.exists()) {
-            const userData = docSnap.data() as UserProfile;
+            // Gabungkan UID dari Auth dengan data dari Firestore agar field 'uid' tidak kosong
+            const userData = { uid: firebaseUser.uid, ...docSnap.data() } as UserProfile;
             
             if (userData.status === 'BLOCKED') {
               await signOut(auth);

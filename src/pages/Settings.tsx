@@ -3,12 +3,12 @@ import { User, Mail, LogOut, Camera, Save, ShieldCheck, CreditCard, Activity, Ba
 import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
 import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { auth, db } from '../services/firebase';
 
 const Settings: React.FC = () => {
   const { user, logout } = useAuth();
   
-  // State Lokal dengan proteksi nilai awal
+  // State Lokal
   const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,30 +21,38 @@ const Settings: React.FC = () => {
     }
   }, [user]);
 
-  // Fungsi Simpan (Proteksi Penuh)
+  // Fungsi Simpan (Proteksi Super Ketat)
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.uid) return;
+    
+    // Fallback: Jika di context kosong, ambil langsung dari Firebase Auth Native
+    const currentUid = user?.uid || auth.currentUser?.uid;
+    
+    if (!currentUid) {
+      alert("Error Kritis: UID Pengguna tidak ditemukan. Silakan login ulang.");
+      return;
+    }
+    
     setLoading(true);
 
     try {
-      let urlFoto = user.photoURL;
+      let urlFoto = user?.photoURL;
 
       // 1. Upload jika ada file baru
       if (photoFile) {
-        const res = await studentService.uploadStudentPhoto(photoFile, `USER_${user.uid}`);
+        const res = await studentService.uploadStudentPhoto(photoFile, `USER_${currentUid}`);
         if (res.success && res.url) {
           urlFoto = res.url;
         }
       }
 
       // 2. Update DB
-      await updateDoc(doc(db, 'users', user.uid), {
+      await updateDoc(doc(db, 'users', currentUid), {
         displayName: displayName,
         photoURL: urlFoto
       });
 
-      // 3. Refresh halaman untuk sinkronisasi state global
+      // 3. Refresh halaman
       window.location.reload();
 
     } catch (err) {
@@ -55,26 +63,25 @@ const Settings: React.FC = () => {
     }
   };
 
-  // --- TAMPILAN SKELETON (Jika data belum ditarik) ---
+  // --- TAMPILAN LOADING ---
   if (!user) {
     return (
       <div className="max-w-6xl mx-auto p-8 text-center animate-pulse">
         <div className="h-64 bg-slate-100 rounded-3xl mb-6"></div>
-        <p className="text-slate-400 font-medium tracking-widest">MENYINKRONKAN IDENTITAS DIGITAL...</p>
+        <p className="text-slate-400 font-medium tracking-widest uppercase">Sinkronisasi Data...</p>
       </div>
     );
   }
 
-  // Ambil UID dengan aman untuk keperluan display
-  const safeUID = user?.uid || "NON-REGISTERED";
+  const safeUID = user.uid || "NON-REGISTERED";
 
   return (
     <div className="max-w-6xl mx-auto pb-16 animate-fade-in">
       
-      {/* HEADER PAGE */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-slate-200 pb-8 mb-10 gap-4">
         <div>
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Akun & Lisensi</h1>
+          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight font-sans">Akun & Lisensi</h1>
           <p className="text-slate-500 mt-2 flex items-center gap-2 font-medium">
             <ShieldCheck size={18} className="text-blue-600" />
             Pengaturan Profil & Keamanan Sistem
@@ -91,35 +98,25 @@ const Settings: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         
-        {/* KOLOM KIRI: PREMIUM BLACK CARD (ID DIGITAL) */}
+        {/* KOLOM KIRI: CARD ID */}
         <div className="lg:col-span-5 xl:col-span-4">
            <div className="relative group">
-              {/* Efek Cahaya di Belakang Kartu */}
-              <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-400 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+              <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-400 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
               
-              {/* KARTU UTAMA */}
               <div className="relative bg-gradient-to-br from-slate-900 via-[#0f172a] to-slate-900 rounded-3xl p-8 text-white shadow-2xl overflow-hidden min-h-[450px] flex flex-col border border-white/10">
-                 
-                 {/* Decorative Abstract Patterns */}
                  <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                 <div className="absolute bottom-0 left-0 w-48 h-48 bg-cyan-400/5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4"></div>
                  <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
 
-                 {/* Card Header */}
                  <div className="flex justify-between items-start z-10 mb-8">
                     <div className="flex flex-col gap-1">
                        <div className="flex items-center gap-2">
                           <CreditCard className="text-blue-400" size={24} />
                           <span className="text-[10px] font-black tracking-[0.4em] text-blue-200 uppercase">LP3I Digital ID</span>
                        </div>
-                       <p className="text-[8px] text-white/30 tracking-widest uppercase">Verified System Member</p>
                     </div>
-                    <div className="w-14 h-10 bg-gradient-to-br from-yellow-100 via-yellow-400 to-yellow-600 rounded-lg shadow-inner border border-white/20 flex items-center justify-center overflow-hidden">
-                       <div className="w-full h-[1px] bg-black/10 my-1"></div>
-                    </div>
+                    <div className="w-14 h-10 bg-gradient-to-br from-yellow-100 via-yellow-400 to-yellow-600 rounded-lg shadow-inner border border-white/20"></div>
                  </div>
 
-                 {/* Avatar Display */}
                  <div className="flex flex-col items-center z-10 flex-1 justify-center">
                     <div className="relative">
                        <div className="w-36 h-32 rounded-3xl p-1 bg-gradient-to-b from-blue-500 to-transparent shadow-2xl mb-6">
@@ -133,7 +130,6 @@ const Settings: React.FC = () => {
                              )}
                           </div>
                        </div>
-                       {/* Status Badge */}
                        <div className="absolute -bottom-2 -right-2 bg-emerald-500 p-1.5 rounded-xl border-4 border-slate-900 shadow-lg">
                           <BadgeCheck size={18} className="text-white" />
                        </div>
@@ -145,13 +141,12 @@ const Settings: React.FC = () => {
                     </div>
                  </div>
 
-                 {/* Card Footer */}
                  <div className="z-10 mt-10 space-y-4 pt-6 border-t border-white/5">
                     <div className="flex justify-between items-end">
                        <div className="space-y-1">
                           <p className="text-[8px] text-white/30 uppercase tracking-widest font-bold">Identification Number</p>
                           <p className="text-sm font-mono tracking-tighter text-blue-100">
-                             {safeUID.substring(0, 4)} • {safeUID.substring(4, 8)} • {safeUID.substring(8, 12)}
+                             {safeUID.slice(0, 4)} • {safeUID.slice(4, 8)} • {safeUID.slice(8, 12)}
                           </p>
                        </div>
                        <div className="text-right space-y-1">
@@ -164,7 +159,7 @@ const Settings: React.FC = () => {
            </div>
         </div>
 
-        {/* KOLOM KANAN: PROFILE EDITOR (MODERN) */}
+        {/* KOLOM KANAN: EDITOR */}
         <div className="lg:col-span-7 xl:col-span-8">
            <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden h-full flex flex-col">
               <div className="px-10 py-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
@@ -185,7 +180,6 @@ const Settings: React.FC = () => {
               <div className="p-10 flex-1">
                  <form onSubmit={handleSave} className="space-y-8 max-w-2xl">
                     
-                    {/* Media Management Area (Saat Edit) */}
                     {isEditing && (
                        <div className="group relative flex items-center gap-6 p-6 bg-blue-50/50 rounded-[1.5rem] border-2 border-dashed border-blue-200 transition-all hover:bg-blue-50">
                           <div className="w-20 h-20 bg-white shadow-md rounded-2xl flex items-center justify-center text-blue-600 border border-blue-100">
@@ -199,7 +193,6 @@ const Settings: React.FC = () => {
                                onChange={(e) => setPhotoFile(e.target.files ? e.target.files[0] : null)}
                                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-black file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
                              />
-                             <p className="text-[10px] text-slate-400 mt-2 font-medium italic">Format yang didukung: JPG, PNG, GIF (Maks. 2MB)</p>
                           </div>
                        </div>
                     )}
@@ -214,7 +207,6 @@ const Settings: React.FC = () => {
                             value={displayName}
                             onChange={(e) => setDisplayName(e.target.value)}
                             readOnly={!isEditing}
-                            placeholder="Masukkan nama lengkap..."
                             className={`w-full px-5 py-4 rounded-2xl border transition-all outline-none font-bold text-slate-800 ${isEditing ? 'border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white' : 'border-transparent bg-slate-50 text-slate-500 cursor-not-allowed'}`}
                           />
                        </div>
@@ -223,17 +215,12 @@ const Settings: React.FC = () => {
                           <label className="text-xs font-black text-slate-500 uppercase tracking-[0.1em] flex items-center gap-2">
                             <Mail size={14} className="text-blue-600" /> Alamat Email
                           </label>
-                          <div className="relative">
-                             <input 
-                                type="text"
-                                value={user.email || ''}
-                                readOnly
-                                className="w-full px-5 py-4 rounded-2xl border border-transparent bg-slate-50 text-slate-500 cursor-not-allowed outline-none font-mono text-sm font-bold"
-                             />
-                             <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                                <BadgeCheck size={16} className="text-emerald-500" />
-                             </div>
-                          </div>
+                          <input 
+                            type="text"
+                            value={user.email || ''}
+                            readOnly
+                            className="w-full px-5 py-4 rounded-2xl border border-transparent bg-slate-50 text-slate-500 cursor-not-allowed outline-none font-mono text-sm font-bold"
+                          />
                        </div>
 
                        <div className="space-y-2">
@@ -280,7 +267,6 @@ const Settings: React.FC = () => {
                  </form>
               </div>
               
-              {/* SYSTEM STATUS FOOTER */}
               <div className="bg-slate-900 px-10 py-5 flex justify-between items-center text-[10px]">
                  <span className="flex items-center gap-2 text-slate-400 font-bold tracking-widest uppercase">
                    <Activity size={14} className="text-emerald-500" /> Operational Stable
