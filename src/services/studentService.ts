@@ -34,21 +34,25 @@ export const studentService = {
   async updateStudent(id: string, data: Partial<Student>) {
     try {
       const studentRef = doc(db, STUDENTS_COLLECTION, id);
-      await updateDoc(studentRef, data);
+      await updateDoc(studentRef, {
+        ...data,
+        updatedAt: Date.now()
+      });
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating student: ", error);
-      return { success: false, error };
+      return { success: false, error: error.message };
     }
   },
 
   async deleteStudent(id: string) {
     try {
+      console.log("Attempting to delete student ID:", id);
       await deleteDoc(doc(db, STUDENTS_COLLECTION, id));
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting student: ", error);
-      return { success: false, error };
+      return { success: false, error: error.message };
     }
   },
 

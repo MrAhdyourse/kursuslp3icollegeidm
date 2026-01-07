@@ -45,10 +45,10 @@ const Students: React.FC = () => {
     if (confirm(`Apakah Anda yakin ingin menghapus data ${name}? Tindakan ini tidak dapat dibatalkan.`)) {
       const res = await studentService.deleteStudent(id);
       if (res.success) {
-        fetchStudents(); 
+        alert("Data berhasil dihapus.");
+        fetchStudents(); // Segarkan data langsung dari Firebase
       } else {
-        // Fallback jika hapus mock data (hanya update state lokal)
-        setStudents(prev => prev.filter(s => s.id !== id));
+        alert(`Gagal menghapus: ${res.error}`);
       }
     }
   };
