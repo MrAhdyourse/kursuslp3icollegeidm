@@ -1,36 +1,43 @@
 @echo off
-title OTOMATISASI PUSH KE GITHUB
 color 0A
+title AUTO DEPLOY - LP3I INDRAMAYU SYSTEM
 
 echo ========================================================
-echo   SISTEM DEPLOY OTOMATIS - LP3I COURSE SYSTEM
+echo    SISTEM DEPLOYMENT OTOMATIS - KURSUS LP3I
 echo ========================================================
 echo.
 
-:: 1. Add Changes
-echo [1/3] Menyiapkan file baru...
+:: 1. Cek Status Git
+echo [1/4] Memeriksa status file...
+git status
+echo.
+
+:: 2. Input Pesan Commit
+set /p commitMsg="Masukkan Pesan Commit (contoh: Update sertifikat): "
+if "%commitMsg%"=="" set commitMsg="Update rutin sistem"
+
+:: 3. Eksekusi Git
+echo.
+echo [2/4] Menambahkan semua perubahan...
 git add .
-echo Berhasil ditambahkan.
+
 echo.
+echo [3/4] Menyimpan (Commit) dengan pesan: "%commitMsg%"...
+git commit -m "%commitMsg%"
 
-:: 2. Commit
-echo [2/3] Menyimpan perubahan lokal...
-set /p commit_msg="Tulis pesan update (atau tekan ENTER untuk otomatis): "
-
-:: Jika kosong, gunakan timestamp
-if "%commit_msg%"=="" set commit_msg=Auto-Update %date% %time%
-
-git commit -m "%commit_msg%"
 echo.
-
-:: 3. Push
-echo [3/3] Mengirim ke GitHub...
+echo [4/4] Mengirim ke GitHub (Push)...
 git push origin main
 
 echo.
 echo ========================================================
-echo   SUKSES! Kode terkirim. GitHub Actions sedang bekerja.
-echo   Silakan cek website Anda dalam 1-2 menit.
+if %ERRORLEVEL% EQU 0 (
+    echo    SUKSES! PERUBAHAN TELAH TERKIRIM KE GITHUB.
+    echo    Tunggu beberapa menit, GitHub Pages akan update otomatis.
+) else (
+    echo    GAGAL! Cek koneksi internet atau konflik file.
+    color 0C
+)
 echo ========================================================
 echo.
 pause

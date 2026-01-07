@@ -8,5 +8,5 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
-  base: './', // Penting untuk deployment di subdirectory (GitHub Pages)
+  base: '/kursuslp3icollegeidm/', // Sesuaikan dengan nama repository GitHub
 })

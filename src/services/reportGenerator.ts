@@ -17,11 +17,16 @@ export const generateStudentPDF = (report: ComprehensiveReport, config: Institut
   const width = doc.internal.pageSize.getWidth();
   const height = doc.internal.pageSize.getHeight();
 
-  // --- 1. BACKGROUND BORDER IMAGE (METODE AMAN) ---
-  // File harus ditaruh di: /public/border.png
+  // --- 1. BACKGROUND BORDER IMAGE (METODE AMAN & OTOMATIS) ---
+  // import.meta.env.BASE_URL akan otomatis menyesuaikan:
+  // - Localhost: "/" -> "/border.png"
+  // - GitHub: "/nama-repo/" -> "/nama-repo/border.png"
   try {
-    // Memanggil langsung dari root public tanpa 'import' agar tidak bikin crash jika file belum ada
-    doc.addImage('/border.png', 'PNG', 0, 0, width, height);
+    const baseUrl = import.meta.env.BASE_URL;
+    // Hapus slash di awal 'border.png' karena BASE_URL biasanya sudah punya slash di akhir
+    const borderPath = `${baseUrl}border.png`; 
+    
+    doc.addImage(borderPath, 'PNG', 0, 0, width, height);
   } catch (e) {
     // Jika file tidak ada, dia akan lewat ke sini tanpa error biru
     console.warn("File /public/border.png belum tersedia.");
