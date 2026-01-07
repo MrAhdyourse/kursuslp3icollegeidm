@@ -19,7 +19,8 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
     name: '',
     email: '',
     phone: '',
-    program: 'Professional Office Administration', // Default
+    program: 'Professional Office Administration',
+    level: 1, // Tambahkan level tier
     batch: new Date().getFullYear().toString(),
     status: 'ACTIVE' as Student['status'],
   });
@@ -34,6 +35,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
         email: studentToEdit.email || '',
         phone: studentToEdit.phone || '',
         program: studentToEdit.program,
+        level: (studentToEdit as any).level || 1, // Ambil level jika ada
         batch: studentToEdit.batch,
         status: studentToEdit.status,
       });
@@ -44,6 +46,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
         email: '',
         phone: '',
         program: 'Professional Office Administration',
+        level: 1,
         batch: new Date().getFullYear().toString(),
         status: 'ACTIVE',
       });
@@ -164,18 +167,32 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Program Kursus</label>
-            <select 
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-blue outline-none"
-              value={formData.program}
-              onChange={e => setFormData({...formData, program: e.target.value})}
-            >
-              <option>Professional Office Administration</option>
-              <option>Computerized Accounting</option>
-              <option>Graphic Design</option>
-              <option>Digital Marketing</option>
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Program Kursus</label>
+              <select 
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-blue outline-none"
+                value={formData.program}
+                onChange={e => setFormData({...formData, program: e.target.value})}
+              >
+                <option>Professional Office Administration</option>
+                <option>Computerized Accounting</option>
+                <option>Graphic Design</option>
+                <option>Digital Marketing</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Tingkatan (Tier)</label>
+              <select 
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-blue outline-none"
+                value={formData.level}
+                onChange={e => setFormData({...formData, level: parseInt(e.target.value)})}
+              >
+                <option value="1">Level 1 (Dasar)</option>
+                <option value="2">Level 2 (Menengah)</option>
+                <option value="3">Level 3 (Lanjutan)</option>
+              </select>
+            </div>
           </div>
 
            <div>

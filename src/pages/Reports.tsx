@@ -30,9 +30,9 @@ const Reports: React.FC = () => {
           }
         });
       } else {
-        // JIKA INSTRUKTUR: Load semua siswa untuk dipilih
+        // JIKA INSTRUKTUR: Load semua siswa dari Firebase saja
         const data = await studentService.getAllStudents();
-        setStudents(data.length > 0 ? data : MOCK_STUDENTS);
+        setStudents(data);
       }
     };
     loadData();

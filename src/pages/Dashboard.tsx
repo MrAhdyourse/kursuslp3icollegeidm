@@ -13,17 +13,16 @@ const Dashboard: React.FC = () => {
     totalPrograms: 3
   });
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      const students = await studentService.getAllStudents();
-      setStats(prev => ({ 
-        ...prev, 
-        totalStudents: students.length > 0 ? students.length : 6 
-      }));
-    };
-    fetchStats();
-  }, []);
-
+    useEffect(() => {
+      const fetchStats = async () => {
+        const students = await studentService.getAllStudents();
+        setStats(prev => ({
+          ...prev,
+          totalStudents: students.length
+        }));
+      };
+      fetchStats();
+    }, []);
   return (
     <div className="animate-fade-in space-y-8">
       

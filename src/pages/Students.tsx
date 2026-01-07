@@ -3,7 +3,7 @@ import { Users, Plus, Edit, Trash2, Search, Filter } from 'lucide-react';
 import { studentService } from '../services/studentService';
 import type { Student } from '../types';
 import { StudentFormModal } from '../components/StudentFormModal';
-import { MOCK_STUDENTS, MOCK_CLASSES } from '../utils/mockData';
+import { MOCK_CLASSES } from '../utils/mockData';
 
 const Students: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -15,15 +15,9 @@ const Students: React.FC = () => {
 
   const fetchStudents = async () => {
     setLoading(true);
-    // Cek Firebase dulu
     const data = await studentService.getAllStudents();
-    
-    // LOGIKA HYBRID: Jika Firebase kosong, tampilkan Mock Data (untuk demo)
-    if (data.length === 0) {
-      setStudents(MOCK_STUDENTS);
-    } else {
-      setStudents(data);
-    }
+    // Hapus logika hybrid, langsung gunakan data dari Firebase
+    setStudents(data);
     setLoading(false);
   };
 
