@@ -10,7 +10,7 @@ import Settings from './pages/Settings';
 import Login from './pages/Login';
 
 // Komponen Penjaga Pintu (Guard)
-const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
