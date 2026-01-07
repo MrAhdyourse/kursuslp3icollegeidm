@@ -40,7 +40,7 @@ const Settings: React.FC = () => {
 
       // 1. Upload jika ada file baru
       if (photoFile) {
-        const res = await studentService.uploadStudentPhoto(photoFile, `USER_${currentUid}`);
+        const res = await studentService.uploadStudentPhoto(photoFile, `USER_${currentUid}`, 'users');
         if (res.success && res.url) {
           urlFoto = res.url;
         }

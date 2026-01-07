@@ -7,12 +7,11 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
-    <div className="min-h-screen bg-gray-50/50 font-sans text-slate-800">
+    <div className="min-h-screen flex flex-col bg-gray-50/50 font-sans text-slate-800">
       <Navbar />
       
-      {/* Main Content Area */}
-      {/* Added pt-24 to account for the fixed navbar height */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-12 animate-fade-in">
+      {/* Main Content Area - flex-1 pushes footer down */}
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-12">
         {children}
       </main>
 

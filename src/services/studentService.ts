@@ -54,14 +54,15 @@ export const studentService = {
   },
 
   /**
-   * Upload Foto Siswa ke folder 'uploads/students'
+   * Upload File (Foto Siswa / Profil User)
+   * folderName default: 'students'
    */
-  async uploadStudentPhoto(file: File, studentName: string) {
+  async uploadStudentPhoto(file: File, fileName: string, folderName: string = 'students') {
     try {
       // Create unique filename
       const timestamp = Date.now();
-      const safeName = studentName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-      const path = `uploads/students/${safeName}_${timestamp}`;
+      const safeName = fileName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+      const path = `uploads/${folderName}/${safeName}_${timestamp}`;
       
       const storageRef = ref(storage, path);
       const snapshot = await uploadBytes(storageRef, file);

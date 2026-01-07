@@ -4,15 +4,21 @@ import { Link } from 'react-router-dom';
 import logoImg from '../assets/images/logo.png';
 
 export const Navbar: React.FC = () => {
+  const { user } = useAuth(); // Ambil data user login
   const [isOpen, setIsOpen] = React.useState(false);
 
   // Menu items config
-  const menuItems = [
+  const allMenuItems = [
     { name: 'Dashboard', icon: Home, href: '/' },
-    { name: 'Data Peserta', icon: Users, href: '/students' },
-    { name: 'Cek Nilai Siswa', icon: FileText, href: '/reports' },
-    { name: 'Pengaturan', icon: Settings, href: '/settings' },
+    { name: 'Data Peserta', icon: Users, href: '/students', roles: ['INSTRUCTOR'] },
+    { name: 'Cek Nilai Siswa', icon: FileText, href: '/reports', roles: ['INSTRUCTOR', 'STUDENT'] },
+    { name: 'Pengaturan', icon: Settings, href: '/settings', roles: ['INSTRUCTOR', 'STUDENT'] },
   ];
+
+  // Filter menu berdasarkan role
+  const menuItems = allMenuItems.filter(item => 
+    !item.roles || (user && item.roles.includes(user.role))
+  );
 
   return (
     <nav className="fixed w-full z-50 top-0 start-0 border-b border-white/10 bg-brand-blue/95 backdrop-blur-md shadow-lg shadow-brand-blue/20">

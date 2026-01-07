@@ -5,6 +5,7 @@ import { studentService } from '../services/studentService';
 import { MOCK_CLASSES } from '../utils/mockData';
 
 const Dashboard: React.FC = () => {
+  const { user } = useAuth(); // Ambil role user
   const [stats, setStats] = useState({
     totalStudents: 0,
     activeClasses: MOCK_CLASSES.filter(c => c.isActive).length,
@@ -12,10 +13,8 @@ const Dashboard: React.FC = () => {
   });
 
   useEffect(() => {
-    // Simulasi fetch data statistik real
     const fetchStats = async () => {
       const students = await studentService.getAllStudents();
-      // Fallback ke 6 jika firebase kosong (untuk demo)
       setStats(prev => ({ 
         ...prev, 
         totalStudents: students.length > 0 ? students.length : 6 
@@ -33,17 +32,27 @@ const Dashboard: React.FC = () => {
           <BookOpen size={200} />
         </div>
         <div className="relative z-10">
-          <h1 className="text-3xl font-bold mb-2">Selamat Datang, Ahdi Yourse! 👋</h1>
+          <h1 className="text-3xl font-bold mb-2">Selamat Datang, {user?.displayName}! 👋</h1>
           <p className="text-blue-100 max-w-2xl">
-            Ini adalah Pusat Kontrol Instruktur Anda. Pantau perkembangan kelas, kelola jadwal, dan evaluasi hasil belajar siswa dalam satu tampilan.
+            {user?.role === 'INSTRUCTOR' 
+              ? 'Ini adalah Pusat Kontrol Instruktur Anda. Pantau perkembangan kelas dan evaluasi hasil belajar.' 
+              : 'Pantau perkembangan kursus Anda, lihat statistik nilai, dan unduh laporan capaian belajar secara mandiri.'}
           </p>
           <div className="mt-6 flex gap-3">
-             <Link to="/students" className="bg-white text-brand-blue px-4 py-2 rounded-lg font-medium hover:bg-blue-50 transition flex items-center gap-2">
-                <UserPlus size={18} /> Kelola Peserta
-             </Link>
-             <Link to="/reports" className="bg-blue-700/50 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition flex items-center gap-2">
-                <List size={18} /> Cek Nilai
-             </Link>
+             {user?.role === 'INSTRUCTOR' ? (
+               <>
+                 <Link to="/students" className="bg-white text-brand-blue px-4 py-2 rounded-lg font-medium hover:bg-blue-50 transition flex items-center gap-2">
+                    <UserPlus size={18} /> Kelola Peserta
+                 </Link>
+                 <Link to="/reports" className="bg-blue-700/50 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition flex items-center gap-2">
+                    <List size={18} /> Cek Nilai
+                 </Link>
+               </>
+             ) : (
+               <Link to="/reports" className="bg-white text-brand-blue px-4 py-2 rounded-lg font-medium hover:bg-blue-50 transition flex items-center gap-2">
+                  <List size={18} /> Lihat Nilai Saya
+               </Link>
+             )}
           </div>
         </div>
       </div>

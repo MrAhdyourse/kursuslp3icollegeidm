@@ -7,48 +7,38 @@ import { MOCK_REPORT, MOCK_STUDENTS } from '../utils/mockData';
 import type { Student, ComprehensiveReport } from '../types';
 
 const Reports: React.FC = () => {
+  const { user } = useAuth(); // Ambil user yang sedang login
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [reportData, setReportData] = useState<ComprehensiveReport | null>(null);
 
-  // 1. Load Data Siswa untuk Dropdown
+  // 1. Load Data
   useEffect(() => {
-    const loadStudents = async () => {
-      const data = await studentService.getAllStudents();
-      setStudents(data.length > 0 ? data : MOCK_STUDENTS);
-    };
-    loadStudents();
-  }, []);
-
-  // 2. Handle Pemilihan Siswa
-  const handleStudentSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const studentId = e.target.value;
-    setSelectedStudentId(studentId);
-
-    if (studentId) {
-      // LOGIKA SIMULASI:
-      // Di sistem asli, kita akan fetch nilai dari 'academic_records' berdasarkan studentId.
-      // Di sini, kita ambil template MOCK_REPORT, lalu timpa info siswanya sesuai pilihan.
-      const selectedStudent = students.find(s => s.id === studentId);
-      
-      if (selectedStudent) {
+    const loadData = async () => {
+      if (user?.role === 'STUDENT') {
+        // JIKA SISWA: Langsung set reportData pake data sendiri
+        // Ambil dari MOCK_REPORT tapi timpa datanya sesuai profil user login
         setReportData({
           ...MOCK_REPORT,
-          student: selectedStudent // Timpa dengan data siswa yang dipilih
+          student: {
+            ...MOCK_STUDENTS[0], // Ambil template
+            id: user.uid,
+            name: user.displayName,
+            email: user.email,
+            avatarUrl: user.photoURL,
+            nis: 'TERDAFTAR', // NIS bisa diambil dari profil jika sudah ada fieldnya
+          }
         });
+      } else {
+        // JIKA INSTRUKTUR: Load semua siswa untuk dipilih
+        const data = await studentService.getAllStudents();
+        setStudents(data.length > 0 ? data : MOCK_STUDENTS);
       }
-    } else {
-      setReportData(null);
-    }
-  };
+    };
+    loadData();
+  }, [user]);
 
-  const handleDownloadPDF = () => {
-    if (reportData) generateStudentPDF(reportData);
-  };
-
-  const handleDownloadExcel = () => {
-    if (reportData) generateStudentExcel(reportData);
-  };
+  // ... (handleStudentSelect tetap sama)
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -56,32 +46,40 @@ const Reports: React.FC = () => {
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">Cek Nilai Siswa</h1>
-            <p className="text-slate-500 mt-1">Pilih siswa untuk melihat transkrip nilai detail, statistik, dan unduh laporan.</p>
+            <h1 className="text-3xl font-bold text-slate-800">
+              {user?.role === 'STUDENT' ? 'Nilai Capaian Saya' : 'Cek Nilai Siswa'}
+            </h1>
+            <p className="text-slate-500 mt-1">
+              {user?.role === 'STUDENT' 
+                ? 'Berikut adalah rekapitulasi nilai dan laporan akademik Anda.' 
+                : 'Pilih siswa untuk melihat transkrip nilai detail, statistik, dan unduh laporan.'}
+            </p>
           </div>
         </div>
 
-        {/* SEARCH BAR */}
-        <div className="relative max-w-xl">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-slate-400" />
+        {/* SEARCH BAR (Hanya muncul untuk Instruktur) */}
+        {user?.role === 'INSTRUCTOR' && (
+          <div className="relative max-w-xl">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-slate-400" />
+            </div>
+            <select
+              className="block w-full pl-10 pr-10 py-3 border border-slate-300 rounded-xl leading-5 bg-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-brand-blue sm:text-sm shadow-sm appearance-none cursor-pointer transition-all hover:border-brand-blue"
+              value={selectedStudentId}
+              onChange={handleStudentSelect}
+            >
+              <option value="">-- Pilih Siswa untuk Melihat Laporan --</option>
+              {students.map((student) => (
+                <option key={student.id} value={student.id}>
+                  {student.name} — {student.program}
+                </option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+              <ChevronDown className="h-5 w-5 text-slate-400" />
+            </div>
           </div>
-          <select
-            className="block w-full pl-10 pr-10 py-3 border border-slate-300 rounded-xl leading-5 bg-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-brand-blue sm:text-sm shadow-sm appearance-none cursor-pointer transition-all hover:border-brand-blue"
-            value={selectedStudentId}
-            onChange={handleStudentSelect}
-          >
-            <option value="">-- Pilih Siswa untuk Melihat Laporan --</option>
-            {students.map((student) => (
-              <option key={student.id} value={student.id}>
-                {student.name} — {student.program}
-              </option>
-            ))}
-          </select>
-          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-            <ChevronDown className="h-5 w-5 text-slate-400" />
-          </div>
-        </div>
+        )}
       </div>
 
       {/* EMPTY STATE */}
