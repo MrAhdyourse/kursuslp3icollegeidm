@@ -42,6 +42,12 @@
   /* Custom Animations */
   --animate-fade-in: fade-in 0.5s ease-out;
   --animate-fade-in-up: fade-in-up 0.7s ease-out;
+  
+  /* SNAKE BORDER ANIMATIONS (Premium Slow Motion) */
+  --animate-snake-top: snake-top 6s linear infinite;
+  --animate-snake-right: snake-right 6s linear infinite;
+  --animate-snake-bottom: snake-bottom 6s linear infinite;
+  --animate-snake-left: snake-left 6s linear infinite;
 
   @keyframes fade-in {
     from { opacity: 0; }
@@ -57,6 +63,26 @@
       opacity: 1;
       transform: translateY(0);
     }
+  }
+
+  @keyframes snake-top {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  
+  @keyframes snake-right {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100%); }
+  }
+
+  @keyframes snake-bottom {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
+  }
+
+  @keyframes snake-left {
+    0% { transform: translateY(100%); }
+    100% { transform: translateY(-100%); }
   }
 }
 

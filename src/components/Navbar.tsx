@@ -22,30 +22,27 @@ export const Navbar: React.FC = () => {
   );
 
   return (
-    <nav className="fixed w-full z-50 top-0 start-0 border-b border-white/10 bg-brand-blue/95 backdrop-blur-md shadow-lg shadow-brand-blue/20">
-      {/* Accent Gradient Line (LP3I Style) */}
-      <div className="h-1 w-full bg-gradient-to-r from-white via-red-500 to-brand-dark"></div>
-
+    <nav className="fixed w-full z-50 top-0 start-0 bg-brand-blue/95 backdrop-blur-md shadow-2xl">
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between mx-auto p-4">
           
-          {/* Logo / Brand Section */}
-          <Link to="/" className="flex items-center space-x-3 rtl:space-x-reverse group">
-            <div className="bg-white p-1 rounded-lg shadow-md group-hover:scale-105 transition-transform duration-300">
-              <img src={logoImg} alt="Logo" className="w-9 h-9 object-contain" onError={(e) => {
-                 e.currentTarget.style.display = 'none';
-                 const fallback = document.createElement('div');
-                 fallback.className = "w-8 h-8 bg-gradient-to-br from-brand-blue to-brand-dark rounded flex items-center justify-center text-white font-bold text-xs";
-                 fallback.innerText = "LP3I";
-                 e.currentTarget.parentElement!.appendChild(fallback);
-              }} />
-            </div>
-            <div className="flex flex-col">
-              <span className="self-center text-xl font-bold whitespace-nowrap text-white tracking-wide">
-                Sistem Kursus
+          {/* Logo / Brand Section - CLASSIC ACADEMIC STYLE */}
+          <Link to="/" className="flex items-center group">
+            
+            {/* Logo Image */}
+            <img src={logoImg} alt="Logo" className="w-10 h-10 object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-300" />
+
+            {/* Vertical Divider */}
+            <div className="h-8 w-[1px] bg-white/20 mx-4"></div>
+
+            {/* Typography */}
+            <div className="flex flex-col justify-center">
+              <span className="font-serif text-2xl font-bold text-white tracking-wide leading-none">
+                E-KURSUS
               </span>
-              <span className="text-[10px] text-blue-100 uppercase tracking-wider font-medium">
-                LP3I Indramayu
+              <span className="text-[10px] text-orange-200 font-sans font-medium tracking-[0.15em] uppercase mt-1">
+                LP3I COLLEGE INDRAMAYU
               </span>
             </div>
           </Link>
