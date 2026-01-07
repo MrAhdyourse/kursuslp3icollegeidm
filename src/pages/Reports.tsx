@@ -58,7 +58,20 @@ const Reports: React.FC = () => {
   };
 
   const handleDownloadPDF = () => {
-    if (reportData) generateStudentPDF(reportData);
+    if (reportData) {
+      // Prioritaskan Nama Instruktur dari Kelas (Database)
+      // Jika tidak ada, baru fallback ke nama default atau user login
+      const instructorName = (reportData as any).classInstructorName 
+        || (user?.role === 'INSTRUCTOR' ? user.displayName : "Ahdi Yourse");
+
+      generateStudentPDF(reportData, {
+        name: "LP3I COLLEGE INDRAMAYU",
+        address: "Jalan Jend. Sudirman No. 123, Indramayu, Jawa Barat",
+        logoUrl: "",
+        headOfInstitution: "H. Fulan bin Fulan, M.Kom",
+        instructorName: instructorName
+      });
+    }
   };
 
   const handleDownloadExcel = () => {

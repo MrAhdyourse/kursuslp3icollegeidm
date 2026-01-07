@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Edit, Trash2, Eye, EyeOff, Save, X, Loader2 } from 'lucide-react';
 import type { ClassGroup } from '../types';
 import { scheduleService } from '../services/scheduleService';
+import { studentService } from '../services/studentService';
 
 const ScheduleManager: React.FC = () => {
   const [schedules, setSchedules] = useState<ClassGroup[]>([]);
+  const [availableCourses, setAvailableCourses] = useState<{id: string, name: string}[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   
@@ -13,12 +15,13 @@ const ScheduleManager: React.FC = () => {
     programId: '',
     level: 1,
     schedule: '',
-    instructorId: 'Ahdi Yourse', // Default
+    instructorId: 'Ahdi Yourse',
     isActive: true
   });
 
   useEffect(() => {
     loadSchedules();
+    loadCourses();
   }, []);
 
   const loadSchedules = async () => {
@@ -28,6 +31,11 @@ const ScheduleManager: React.FC = () => {
     } catch (error) {
       alert("Gagal memuat jadwal.");
     }
+  };
+
+  const loadCourses = async () => {
+    const courses = await studentService.getCourseTypes();
+    setAvailableCourses(courses);
   };
 
   const handleSave = async () => {
@@ -102,24 +110,30 @@ const ScheduleManager: React.FC = () => {
         <h3 className="font-semibold text-slate-700 mb-4">{isEditing ? 'Edit Jadwal' : 'Tambah Jadwal Baru'}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1">Nama Kelas</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">Nama Kelas (Grup)</label>
             <input 
               type="text" 
               className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-brand-blue"
-              placeholder="Contoh: POA - Pagi A"
+              placeholder="Contoh: Ms Office - Pagi A"
               value={formData.name}
               onChange={e => setFormData({...formData, name: e.target.value})}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1">Program ID</label>
-            <input 
-              type="text" 
-              className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-brand-blue"
-              placeholder="Contoh: PROG-POA"
+            <label className="block text-sm font-medium text-slate-600 mb-1">Program Kursus</label>
+            <select 
+              className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-brand-blue bg-white"
               value={formData.programId}
               onChange={e => setFormData({...formData, programId: e.target.value})}
-            />
+            >
+              <option value="">-- Pilih Program --</option>
+              {availableCourses.map(course => (
+                <option key={course.id} value={course.name}>{course.name}</option>
+              ))}
+            </select>
+            {availableCourses.length === 0 && (
+              <span className="text-[10px] text-red-500">Belum ada Jenis Kursus di menu Pengaturan.</span>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1">Jadwal (Hari & Jam)</label>
@@ -129,6 +143,16 @@ const ScheduleManager: React.FC = () => {
               placeholder="Senin & Rabu, 08:00 - 10:00"
               value={formData.schedule}
               onChange={e => setFormData({...formData, schedule: e.target.value})}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1">Nama Instruktur</label>
+            <input 
+              type="text" 
+              className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-brand-blue"
+              placeholder="Contoh: Ahdi Aghni"
+              value={formData.instructorId}
+              onChange={e => setFormData({...formData, instructorId: e.target.value})}
             />
           </div>
           <div>

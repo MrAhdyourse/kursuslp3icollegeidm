@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Upload } from 'lucide-react';
-import type { Student } from '../types';
+import type { Student, ClassGroup } from '../types';
 import { studentService } from '../services/studentService';
+import { scheduleService } from '../services/scheduleService';
 
 interface StudentFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  studentToEdit?: Student | null; // Jika null berarti Mode Tambah
+  studentToEdit?: Student | null; 
 }
 
 export const StudentFormModal: React.FC<StudentFormModalProps> = ({ 
@@ -15,31 +16,39 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [availableCourses, setAvailableCourses] = useState<{id: string, name: string}[]>([]);
+  const [activeClasses, setActiveClasses] = useState<ClassGroup[]>([]);
+  
   const [formData, setFormData] = useState({
     nis: '',
     name: '',
     email: '',
     phone: '',
     program: '',
+    classId: '', // Field Baru: ID Kelas
     level: 1, 
     batch: new Date().getFullYear().toString(),
     status: 'ACTIVE' as Student['status'],
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
 
-  // Load Daftar Kursus dari Firebase
+  // Load Data Master (Kursus & Jadwal)
   useEffect(() => {
     if (isOpen) {
-      const fetchCourses = async () => {
+      const fetchData = async () => {
+        // 1. Ambil Jenis Kursus
         const courses = await studentService.getCourseTypes();
         setAvailableCourses(courses);
         
-        // Jika mode tambah dan ada kursus tersedia, set default ke kursus pertama
+        // 2. Ambil Jadwal Kelas Aktif
+        const classes = await scheduleService.getActiveSchedules();
+        setActiveClasses(classes);
+
+        // Default Program jika tambah baru
         if (!studentToEdit && courses.length > 0) {
           setFormData(prev => ({ ...prev, program: courses[0].name }));
         }
       };
-      fetchCourses();
+      fetchData();
     }
   }, [isOpen, studentToEdit]);
 
@@ -52,21 +61,23 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
         email: studentToEdit.email || '',
         phone: studentToEdit.phone || '',
         program: studentToEdit.program,
+        classId: studentToEdit.classId || '', // Load classId jika ada
         level: (studentToEdit as any).level || 1, 
         batch: studentToEdit.batch,
         status: studentToEdit.status,
       });
     } else {
-      setFormData({
+      setFormData(prev => ({
         nis: '',
         name: '',
         email: '',
         phone: '',
-        program: '',
+        program: prev.program, // Keep existing program selection
+        classId: '',
         level: 1,
         batch: new Date().getFullYear().toString(),
         status: 'ACTIVE',
-      });
+      }));
     }
     setPhotoFile(null);
   }, [studentToEdit, isOpen]);
@@ -191,7 +202,10 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                 required
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-blue outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
                 value={formData.program}
-                onChange={e => setFormData({...formData, program: e.target.value})}
+                onChange={e => {
+                  // Reset classId saat program berubah agar tidak mismatch
+                  setFormData({...formData, program: e.target.value, classId: ''});
+                }}
                 disabled={availableCourses.length === 0}
               >
                 {availableCourses.length === 0 ? (
@@ -205,10 +219,28 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   </>
                 )}
               </select>
-              {availableCourses.length === 0 && (
-                <p className="text-[10px] text-red-500 mt-1">Sertakan Jenis Kursus di menu Pengaturan dahulu.</p>
-              )}
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Pilih Kelas / Jadwal</label>
+              <select 
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-blue outline-none"
+                value={formData.classId}
+                onChange={e => setFormData({...formData, classId: e.target.value})}
+                disabled={!formData.program} // Disable jika program belum dipilih
+              >
+                <option value="">-- Pilih Kelas --</option>
+                {activeClasses
+                  .filter(cls => !formData.program || cls.programId.includes(formData.program) || cls.name.includes(formData.program)) // Filter kasar, idealnya by ID tapi sementara by Name/String
+                  .map(cls => (
+                    <option key={cls.id} value={cls.id}>
+                      {cls.name} — {cls.instructorId}
+                    </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-slate-400 mt-1">Pilih kelas agar Instruktur otomatis terdeteksi di sertifikat.</p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tingkatan (Tier)</label>
               <select 

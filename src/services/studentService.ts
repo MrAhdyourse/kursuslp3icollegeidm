@@ -48,39 +48,40 @@ export const studentService = {
     }
   },
 
-    async getStudentById(id: string): Promise<Student | null> {
-      try {
-        const docRef = doc(db, STUDENTS_COLLECTION, id);
-        const snap = await getDoc(docRef);
-        if (snap.exists()) {
-          return { id: snap.id, ...snap.data() } as Student;
-        }
-        return null;
-      } catch (e) {
-        console.error(e);
-        return null;
+  async getStudentById(id: string): Promise<Student | null> {
+    try {
+      const docRef = doc(db, STUDENTS_COLLECTION, id);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        return { id: snap.id, ...snap.data() } as Student;
       }
-    },
-  
-    // Fitur Deteksi Otomatis via Email (Request User)
-    async getStudentByEmail(email: string): Promise<Student | null> {
-      try {
-        const q = query(collection(db, STUDENTS_COLLECTION), where("email", "==", email));
-        const querySnapshot = await getDocs(q);
-        
-        if (!querySnapshot.empty) {
-          // Ambil data pertama yang cocok
-          const doc = querySnapshot.docs[0];
-          return { id: doc.id, ...doc.data() } as Student;
-        }
-        return null;
-      } catch (error) {
-        console.error("Error finding student by email:", error);
-        return null;
+      return null;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  },
+
+  // Fitur Deteksi Otomatis via Email (Request User)
+  async getStudentByEmail(email: string): Promise<Student | null> {
+    try {
+      const q = query(collection(db, STUDENTS_COLLECTION), where("email", "==", email));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        // Ambil data pertama yang cocok
+        const doc = querySnapshot.docs[0];
+        return { id: doc.id, ...doc.data() } as Student;
       }
-    },
-  
-    async updateStudent(id: string, data: Partial<Student>) {    try {
+      return null;
+    } catch (error) {
+      console.error("Error finding student by email:", error);
+      return null;
+    }
+  },
+
+  async updateStudent(id: string, data: Partial<Student>) {
+    try {
       const studentRef = doc(db, STUDENTS_COLLECTION, id);
       await updateDoc(studentRef, {
         ...data,
@@ -192,6 +193,21 @@ export const studentService = {
       else if (avgScore >= 60) predicate = 'C';
       else if (avgScore >= 50) predicate = 'D';
 
+      // 5. AMBIL NAMA INSTRUKTUR DARI KELAS
+      let classInstructor = "Instruktur Pengampu"; 
+      if (student.classId) {
+        try {
+          const docRef = doc(db, "class_schedules", student.classId);
+          const clsSnap = await getDoc(docRef);
+          if (clsSnap.exists()) {
+            // Ambil field instructorId (yg isinya nama instruktur)
+            classInstructor = clsSnap.data().instructorId || classInstructor;
+          }
+        } catch (e) { 
+          console.warn("Gagal ambil data instruktur kelas", e); 
+        }
+      }
+
       return {
         student,
         modules: modulesReport,
@@ -200,8 +216,10 @@ export const studentService = {
           attendancePercentage: 100,
           averageScore: avgScore,
           gradePredicate: predicate
-        }
-      };
+        },
+        classInstructorName: classInstructor
+      } as any; // Cast any karena tipe ComprehensiveReport belum diupdate (gapapa utk JS logic)
+
     } catch (error) {
       console.error("Gagal generate laporan:", error);
       return null;
