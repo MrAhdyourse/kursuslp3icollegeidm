@@ -14,17 +14,34 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   isOpen, onClose, onSuccess, studentToEdit 
 }) => {
   const [loading, setLoading] = useState(false);
+  const [availableCourses, setAvailableCourses] = useState<{id: string, name: string}[]>([]);
   const [formData, setFormData] = useState({
     nis: '',
     name: '',
     email: '',
     phone: '',
-    program: 'Professional Office Administration',
-    level: 1, // Tambahkan level tier
+    program: '',
+    level: 1, 
     batch: new Date().getFullYear().toString(),
     status: 'ACTIVE' as Student['status'],
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+
+  // Load Daftar Kursus dari Firebase
+  useEffect(() => {
+    if (isOpen) {
+      const fetchCourses = async () => {
+        const courses = await studentService.getCourseTypes();
+        setAvailableCourses(courses);
+        
+        // Jika mode tambah dan ada kursus tersedia, set default ke kursus pertama
+        if (!studentToEdit && courses.length > 0) {
+          setFormData(prev => ({ ...prev, program: courses[0].name }));
+        }
+      };
+      fetchCourses();
+    }
+  }, [isOpen, studentToEdit]);
 
   // Reset form saat modal dibuka/ganti mode
   useEffect(() => {
@@ -35,7 +52,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
         email: studentToEdit.email || '',
         phone: studentToEdit.phone || '',
         program: studentToEdit.program,
-        level: (studentToEdit as any).level || 1, // Ambil level jika ada
+        level: (studentToEdit as any).level || 1, 
         batch: studentToEdit.batch,
         status: studentToEdit.status,
       });
@@ -45,7 +62,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
         name: '',
         email: '',
         phone: '',
-        program: 'Professional Office Administration',
+        program: '',
         level: 1,
         batch: new Date().getFullYear().toString(),
         status: 'ACTIVE',
@@ -171,15 +188,26 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Program Kursus</label>
               <select 
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-blue outline-none"
+                required
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-blue outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
                 value={formData.program}
                 onChange={e => setFormData({...formData, program: e.target.value})}
+                disabled={availableCourses.length === 0}
               >
-                <option>Professional Office Administration</option>
-                <option>Computerized Accounting</option>
-                <option>Graphic Design</option>
-                <option>Digital Marketing</option>
+                {availableCourses.length === 0 ? (
+                  <option value="">-- Tidak ada program tersedia --</option>
+                ) : (
+                  <>
+                    <option value="">-- Pilih Program --</option>
+                    {availableCourses.map(course => (
+                      <option key={course.id} value={course.name}>{course.name}</option>
+                    ))}
+                  </>
+                )}
               </select>
+              {availableCourses.length === 0 && (
+                <p className="text-[10px] text-red-500 mt-1">Sertakan Jenis Kursus di menu Pengaturan dahulu.</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tingkatan (Tier)</label>
@@ -206,6 +234,13 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               <option value="GRADUATED">Lulus (Graduated)</option>
               <option value="DROPOUT">Keluar (Dropout)</option>
             </select>
+          </div>
+
+          <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+            <p className="text-[10px] text-blue-700 leading-tight">
+              <b>Info:</b> Data ini hanya untuk keperluan administrasi dan laporan. 
+              Pastikan email yang digunakan sudah didaftarkan oleh Admin di Firebase Auth agar siswa bisa login.
+            </p>
           </div>
 
           <div>

@@ -3,20 +3,37 @@ import {
   addDoc, 
   query,
   getDocs,
+  getDoc,
   doc,
+  setDoc,
   updateDoc,
   deleteDoc,
   where,
-  orderBy
+  orderBy,
+  onSnapshot
 } from "firebase/firestore";
 import { db } from "./firebase";
-import type { Student, MeetingRecord } from "../types";
+import type { Student, MeetingRecord, ComprehensiveReport, CourseModule } from "../types";
 
 const STUDENTS_COLLECTION = "students";
 const RECORDS_COLLECTION = "academic_records"; 
 
 export const studentService = {
-  // --- STUDENT MANAGEMENT ---
+  
+  // --- REAL-TIME LISTENERS ---
+
+  subscribeToStudents: (callback: (data: Student[]) => void) => {
+    const q = query(collection(db, STUDENTS_COLLECTION), orderBy("createdAt", "desc"));
+    return onSnapshot(q, (snapshot) => {
+      const students = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Student));
+      callback(students);
+    });
+  },
+
+  // --- STUDENT CRUD ---
 
   async addStudent(student: Omit<Student, "id">) {
     try {
@@ -31,8 +48,39 @@ export const studentService = {
     }
   },
 
-  async updateStudent(id: string, data: Partial<Student>) {
-    try {
+    async getStudentById(id: string): Promise<Student | null> {
+      try {
+        const docRef = doc(db, STUDENTS_COLLECTION, id);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          return { id: snap.id, ...snap.data() } as Student;
+        }
+        return null;
+      } catch (e) {
+        console.error(e);
+        return null;
+      }
+    },
+  
+    // Fitur Deteksi Otomatis via Email (Request User)
+    async getStudentByEmail(email: string): Promise<Student | null> {
+      try {
+        const q = query(collection(db, STUDENTS_COLLECTION), where("email", "==", email));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          // Ambil data pertama yang cocok
+          const doc = querySnapshot.docs[0];
+          return { id: doc.id, ...doc.data() } as Student;
+        }
+        return null;
+      } catch (error) {
+        console.error("Error finding student by email:", error);
+        return null;
+      }
+    },
+  
+    async updateStudent(id: string, data: Partial<Student>) {    try {
       const studentRef = doc(db, STUDENTS_COLLECTION, id);
       await updateDoc(studentRef, {
         ...data,
@@ -47,40 +95,12 @@ export const studentService = {
 
   async deleteStudent(id: string) {
     try {
-      console.log("Attempting to delete student ID:", id);
       await deleteDoc(doc(db, STUDENTS_COLLECTION, id));
       return { success: true };
     } catch (error: any) {
       console.error("Error deleting student: ", error);
       return { success: false, error: error.message };
     }
-  },
-
-  /**
-   * Mengonversi Foto jadi Teks Base64 (Anti-CORS & Instan)
-   */
-  async uploadStudentPhoto(file: File, _fileName: string, _folderName: string = 'students') {
-    return new Promise<{ success: boolean; url?: string; error?: string }>((resolve) => {
-      const reader = new FileReader();
-      
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        
-        // Proteksi: Firestore punya limit 1MB per dokumen.
-        // Kita limit agar foto yang diupload tidak lebih dari ~600KB setelah jadi teks.
-        if (base64String.length > 800000) {
-          resolve({ success: false, error: "Ukuran foto terlalu besar. Silakan gunakan foto yang lebih kecil (di bawah 500KB)." });
-        } else {
-          resolve({ success: true, url: base64String });
-        }
-      };
-
-      reader.onerror = () => {
-        resolve({ success: false, error: "Gagal membaca file foto." });
-      };
-
-      reader.readAsDataURL(file);
-    });
   },
 
   async getAllStudents() {
@@ -97,46 +117,142 @@ export const studentService = {
     }
   },
 
-  // --- ACADEMIC RECORDS (NILAI) ---
-
-  /**
-   * Menyimpan nilai pertemuan (Word/Excel/PPT)
-   */
-  async addMeetingRecord(record: Omit<MeetingRecord, "id">) {
+  async getCourseTypes() {
     try {
-      const docRef = await addDoc(collection(db, RECORDS_COLLECTION), {
-        ...record,
-        updatedAt: Date.now()
-      });
-      return { success: true, id: docRef.id };
+      const q = query(collection(db, "course_types"), orderBy("name", "asc"));
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name
+      }));
     } catch (error) {
-      console.error("Error adding record: ", error);
-      return { success: false, error };
+      console.error("Error getting course types:", error);
+      return [];
     }
   },
 
-  /**
-   * Mengambil semua nilai milik satu siswa tertentu
-   * Penting untuk menu Statistik!
-   */
+  // --- ACADEMIC RECORDS & REPORTS ---
+
   async getStudentRecords(studentId: string) {
     try {
-      const q = query(
-        collection(db, RECORDS_COLLECTION), 
-        where("studentId", "==", studentId)
-        // Note: orderBy butuh composite index di Firebase, kita sort manual di JS saja biar aman di awal
-      );
+      const q = query(collection(db, RECORDS_COLLECTION), where("studentId", "==", studentId));
       const querySnapshot = await getDocs(q);
       const records = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as MeetingRecord[];
-      
-      // Urutkan berdasarkan tanggal
       return records.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     } catch (error) {
       console.error("Error getting records: ", error);
       return [];
     }
+  },
+
+  // Alias untuk kompatibilitas dengan GradingModal
+  async getStudentGrades(studentId: string) {
+    return this.getStudentRecords(studentId);
+  },
+
+  async getComprehensiveReport(studentId: string): Promise<ComprehensiveReport | null> {
+    try {
+      const student = await studentService.getStudentById(studentId);
+      if (!student) return null;
+
+      const records = await studentService.getStudentRecords(studentId);
+
+      const modulesReport = records.map(rec => {
+        const modInfo = (rec as any).moduleInfo || {
+          title: 'Materi Pertemuan',
+          category: 'UMUM',
+          meetingNumber: 0,
+          maxScore: 100
+        };
+        const mainGrade = rec.grades.find(g => g.type === 'PRAKTEK' || g.type === 'TUGAS')?.score || 0;
+
+        return {
+          moduleInfo: {
+            id: rec.moduleId || `MOD-${rec.id}`,
+            category: modInfo.category || 'OTHER',
+            title: modInfo.title || 'Materi Tanpa Judul',
+            meetingNumber: modInfo.meetingNumber || 0,
+            maxScore: 100
+          } as CourseModule,
+          finalScore: mainGrade,
+          record: rec
+        };
+      });
+
+      const totalMeetings = modulesReport.length;
+      const totalScore = modulesReport.reduce((sum, m) => sum + m.finalScore, 0);
+      const avgScore = totalMeetings > 0 ? totalScore / totalMeetings : 0;
+      
+      let predicate: 'A'|'B'|'C'|'D'|'E' = 'E';
+      if (avgScore >= 85) predicate = 'A';
+      else if (avgScore >= 75) predicate = 'B';
+      else if (avgScore >= 60) predicate = 'C';
+      else if (avgScore >= 50) predicate = 'D';
+
+      return {
+        student,
+        modules: modulesReport,
+        summary: {
+          totalMeetings,
+          attendancePercentage: 100,
+          averageScore: avgScore,
+          gradePredicate: predicate
+        }
+      };
+    } catch (error) {
+      console.error("Gagal generate laporan:", error);
+      return null;
+    }
+  },
+
+  async saveSessionRecord(data: {
+    studentId: string;
+    meetingNumber: number;
+    topic: string;
+    attendance: string;
+    score: number;
+    notes: string;
+  }) {
+    try {
+      const docId = `REC_${data.studentId}_S${data.meetingNumber}`;
+      const recordRef = doc(db, RECORDS_COLLECTION, docId);
+      const recordData = {
+        studentId: data.studentId,
+        date: new Date().toISOString(),
+        attendance: data.attendance,
+        instructorNotes: data.notes,
+        grades: [{ type: 'PRAKTEK', score: Number(data.score) }],
+        moduleInfo: {
+          title: data.topic,
+          meetingNumber: data.meetingNumber
+        },
+        updatedAt: Date.now()
+      };
+      await setDoc(recordRef, recordData, { merge: true });
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error saving grade:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // --- UTILS ---
+  async uploadStudentPhoto(file: File, _fileName: string, _folderName: string = 'students') {
+    return new Promise<{ success: boolean; url?: string; error?: string }>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        if (base64String.length > 800000) {
+          resolve({ success: false, error: "Foto terlalu besar (Max 500KB)." });
+        } else {
+          resolve({ success: true, url: base64String });
+        }
+      };
+      reader.onerror = () => resolve({ success: false, error: "Gagal membaca foto." });
+      reader.readAsDataURL(file);
+    });
   }
 };

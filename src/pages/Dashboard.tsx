@@ -1,28 +1,54 @@
 import React, { useEffect, useState } from 'react';
-import { Users, BookOpen, Clock, Calendar, ArrowRight, UserPlus, List } from 'lucide-react';
+import { Users, BookOpen, Clock, Calendar, ArrowRight, UserPlus, List, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
-import { MOCK_CLASSES } from '../utils/mockData';
+import { scheduleService } from '../services/scheduleService';
+import type { ClassGroup } from '../types';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth(); // Ambil role user
   const [stats, setStats] = useState({
     totalStudents: 0,
-    activeClasses: MOCK_CLASSES.filter(c => c.isActive).length,
+    activeClasses: 0,
     totalPrograms: 3
   });
+  const [activeClassesList, setActiveClassesList] = useState<ClassGroup[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-      const fetchStats = async () => {
-        const students = await studentService.getAllStudents();
-        setStats(prev => ({
-          ...prev,
-          totalStudents: students.length
-        }));
-      };
-      fetchStats();
-    }, []);
+  useEffect(() => {
+    // 1. Fetch Students & Programs (One-time)
+    const fetchStats = async () => {
+      const students = await studentService.getAllStudents();
+      const courses = await studentService.getCourseTypes(); // Ambil Total Program Real
+      
+      setStats(prev => ({ 
+        ...prev, 
+        totalStudents: students.length,
+        totalPrograms: courses.length // Update Angka Real
+      }));
+    };
+    fetchStats();
+
+    // 2. Subscribe to Schedules (Real-time)
+    const unsubscribe = scheduleService.subscribeToActiveSchedules((activeSchedules) => {
+      setActiveClassesList(activeSchedules);
+      setStats(prev => ({ ...prev, activeClasses: activeSchedules.length }));
+      setIsLoading(false);
+    });
+
+    // Cleanup listener when component unmounts
+    return () => unsubscribe();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <Loader2 size={40} className="text-brand-blue animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="animate-fade-in space-y-8">
       
@@ -100,7 +126,8 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {MOCK_CLASSES.map((kelas) => (
+          {activeClassesList.length > 0 ? (
+             activeClassesList.map((kelas) => (
             <div key={kelas.id} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all group">
                <div className="p-5">
                   <div className="flex justify-between items-start mb-3">
@@ -122,13 +149,19 @@ const Dashboard: React.FC = () => {
                   </div>
                </div>
                <div className="px-5 py-3 border-t border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-b-xl">
-                  <span className="text-xs text-slate-500 font-medium">Instruktur: Ahdi Yourse</span>
+                  <span className="text-xs text-slate-500 font-medium">Instruktur: {kelas.instructorId}</span>
                   <Link to={`/students`} className="text-brand-blue hover:text-blue-800 text-sm font-medium flex items-center gap-1">
                     Lihat <ArrowRight size={14} />
                   </Link>
                </div>
             </div>
-          ))}
+          ))
+          ) : (
+             <div className="col-span-3 text-center py-10 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+               <Calendar size={48} className="mx-auto text-slate-300 mb-3" />
+               <p className="text-slate-500 font-medium">Belum ada kelas aktif saat ini.</p>
+             </div>
+          )}
         </div>
       </div>
 

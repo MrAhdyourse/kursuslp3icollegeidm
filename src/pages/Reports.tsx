@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, FileSpreadsheet, Search, UserCheck, Award, Calendar, ChevronDown } from 'lucide-react';
+import { FileText, FileSpreadsheet, Search, UserCheck, Award, Calendar, ChevronDown, Loader2 } from 'lucide-react';
 import { studentService } from '../services/studentService';
 import { useAuth } from '../context/AuthContext';
 import { generateStudentPDF, generateStudentExcel } from '../services/reportGenerator';
 import { StudentStatistics } from '../components/StudentStatistics';
-import { MOCK_REPORT, MOCK_STUDENTS } from '../utils/mockData';
 import type { Student, ComprehensiveReport } from '../types';
 
 const Reports: React.FC = () => {
@@ -12,45 +11,47 @@ const Reports: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [reportData, setReportData] = useState<ComprehensiveReport | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  // 1. Load Data
+  // 1. Load Initial Data
   useEffect(() => {
-    const loadData = async () => {
+    const init = async () => {
       if (user?.role === 'STUDENT') {
-        // JIKA SISWA: Langsung set reportData pake data sendiri
-        setReportData({
-          ...MOCK_REPORT,
-          student: {
-            ...MOCK_STUDENTS[0],
-            id: user.uid,
-            name: user.displayName,
-            email: user.email,
-            avatarUrl: user.photoURL,
-            nis: 'TERDAFTAR', 
+        setLoading(true);
+        let targetStudentId = user.uid; // Default: Coba pakai UID login
+
+        // LOGIKA AUTO-DETECT (Pencocokan Email)
+        if (user.email) {
+          const matchedStudent = await studentService.getStudentByEmail(user.email);
+          if (matchedStudent) {
+            console.log("Auto-Detect: Data siswa ditemukan via email!", matchedStudent.name);
+            targetStudentId = matchedStudent.id; // Pakai ID asli dari database Siswa
+          } else {
+            console.log("Auto-Detect: Email tidak ditemukan di data siswa, mencoba UID...");
           }
-        });
-      } else {
-        // JIKA INSTRUKTUR: Load semua siswa dari Firebase saja
+        }
+
+        const data = await studentService.getComprehensiveReport(targetStudentId);
+        setReportData(data);
+        setLoading(false);
+      } else if (user?.role === 'INSTRUCTOR') {
         const data = await studentService.getAllStudents();
         setStudents(data);
       }
     };
-    loadData();
+    init();
   }, [user]);
 
   // 2. Handle Pemilihan Siswa (Hanya untuk Instruktur)
-  const handleStudentSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleStudentSelect = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const studentId = e.target.value;
     setSelectedStudentId(studentId);
 
     if (studentId) {
-      const selectedStudent = students.find(s => s.id === studentId);
-      if (selectedStudent) {
-        setReportData({
-          ...MOCK_REPORT,
-          student: selectedStudent
-        });
-      }
+      setLoading(true);
+      const data = await studentService.getComprehensiveReport(studentId);
+      setReportData(data);
+      setLoading(false);
     } else {
       setReportData(null);
     }
@@ -106,17 +107,30 @@ const Reports: React.FC = () => {
         )}
       </div>
 
+      {/* LOADING STATE */}
+      {loading && (
+        <div className="flex justify-center items-center py-20">
+          <Loader2 size={40} className="text-brand-blue animate-spin" />
+        </div>
+      )}
+
       {/* EMPTY STATE */}
-      {!reportData && (
+      {!loading && !reportData && (
         <div className="flex flex-col items-center justify-center min-h-[400px] bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 animate-fade-in">
           <Search size={64} className="mb-4 text-slate-300" />
-          <h3 className="text-lg font-medium text-slate-600">Belum ada data dipilih</h3>
-          <p className="text-sm">Silakan pilih nama siswa untuk menampilkan data.</p>
+          <h3 className="text-lg font-medium text-slate-600">
+            {user?.role === 'STUDENT' ? 'Belum ada data nilai.' : 'Belum ada siswa dipilih'}
+          </h3>
+          <p className="text-sm">
+            {user?.role === 'STUDENT' 
+              ? 'Data akademik Anda belum tersedia di sistem.' 
+              : 'Silakan pilih nama siswa untuk menampilkan data.'}
+          </p>
         </div>
       )}
 
       {/* REPORT CONTENT */}
-      {reportData && (
+      {!loading && reportData && (
         <div className="animate-fade-in-up space-y-8">
           
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -178,7 +192,8 @@ const Reports: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {reportData.modules.map((mod) => (
+                    {reportData.modules.length > 0 ? (
+                      reportData.modules.map((mod) => (
                       <tr key={mod.moduleInfo.id} className="bg-white border-b border-slate-100 hover:bg-slate-50 transition-colors">
                         <td className="px-6 py-4 font-medium text-brand-blue">
                           #{mod.moduleInfo.meetingNumber}
@@ -199,7 +214,14 @@ const Reports: React.FC = () => {
                           "{mod.record?.instructorNotes}"
                         </td>
                       </tr>
-                    ))}
+                    ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-8 text-center text-slate-400 italic">
+                           Belum ada data pertemuan yang dinilai.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

@@ -1,23 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Camera, CreditCard, BadgeCheck, BookOpen, Layers, 
-  ListOrdered, Plus, Trash2, LogOut, Save
+  User, BookOpen, Layers, ListOrdered, Plus, Trash2, LogOut, Save, 
+  GraduationCap, AlertTriangle, Clock 
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
-import { doc, setDoc, collection, getDocs, deleteDoc, addDoc } from 'firebase/firestore'; 
-import { db } from '../services/firebase';
+import { doc, setDoc, collection, getDocs, deleteDoc, addDoc, getDoc } from 'firebase/firestore'; 
+import { db, auth } from '../services/firebase';
+import ScheduleManager from '../components/ScheduleManager';
+
+type SettingTab = 'PROFILE' | 'COURSES' | 'CURRICULUM' | 'SESSIONS' | 'SCHEDULE';
 
 const Settings: React.FC = () => {
   const { user, logout } = useAuth();
   
-  // --- States ---
-  const [isEditing, setIsEditing] = useState(false);
-  const [displayName, setDisplayName] = useState('');
+  // Navigation
+  const [activeTab, setActiveTab] = useState<SettingTab>('PROFILE');
   const [loading, setLoading] = useState(false);
+
+  // Profile State
+  const [displayName, setDisplayName] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+
+  // Master Data State
   const [courses, setCourses] = useState<any[]>([]);
-  const [newCourse, setNewCourse] = useState('');
+  const [selectedCourseId, setSelectedCourseId] = useState<string>('');
+  const [selectedLevel, setSelectedLevel] = useState<number>(1);
+  
+  // Curriculum State
+  const [modules, setModules] = useState<string[]>([]);
+  const [newModule, setNewModule] = useState('');
+  
+  // Sessions State
+  const [sessionCount, setSessionCount] = useState<number>(12);
 
   useEffect(() => {
     if (user) {
@@ -26,212 +41,435 @@ const Settings: React.FC = () => {
     }
   }, [user]);
 
+  // Fetch saat ganti kursus/level di tab kurikulum
+  useEffect(() => {
+    if (activeTab === 'CURRICULUM' && selectedCourseId) {
+      fetchCurriculum(selectedCourseId, selectedLevel);
+    }
+    if (activeTab === 'SESSIONS' && selectedCourseId) {
+      fetchSessionConfig(selectedCourseId, selectedLevel);
+    }
+  }, [selectedCourseId, selectedLevel, activeTab]);
+
+  // --- DATABASE FUNCTIONS ---
+
   const fetchCourses = async () => {
     try {
       const snap = await getDocs(collection(db, "course_types"));
-      setCourses(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setCourses(list);
+      // Auto select first course if available
+      if (list.length > 0 && !selectedCourseId) setSelectedCourseId(list[0].id);
     } catch (e) { console.error(e); }
   };
 
-  const handleAddCourse = async () => {
-    if (!newCourse) return;
-    setLoading(true);
-    await addDoc(collection(db, "course_types"), { name: newCourse, createdAt: Date.now() });
-    setNewCourse('');
-    await fetchCourses();
-    setLoading(false);
+  const fetchCurriculum = async (courseId: string, level: number) => {
+    const docId = `CURR_${courseId}_LVL${level}`;
+    const snap = await getDoc(doc(db, "curriculums", docId));
+    if (snap.exists()) {
+      setModules(snap.data().modules || []);
+    } else {
+      setModules([]);
+    }
   };
 
-  const handleDeleteCourse = async (id: string) => {
-    if (!confirm("Hapus kursus ini?")) return;
-    setLoading(true);
-    await deleteDoc(doc(db, "course_types", id));
-    await fetchCourses();
-    setLoading(false);
+  const saveCurriculum = async () => {
+    if (!selectedCourseId) return;
+    const finalId = `CURR_${selectedCourseId}_LVL${selectedLevel}`;
+    
+    try {
+      await setDoc(doc(db, "curriculums", finalId), {
+        courseId: selectedCourseId,
+        level: selectedLevel,
+        modules: modules,
+        updatedAt: Date.now()
+      });
+      alert("Kurikulum tersimpan!");
+    } catch (e) { alert("Gagal simpan kurikulum"); }
+  };
+
+  const fetchSessionConfig = async (courseId: string, level: number) => {
+    const docId = `SESS_${courseId}_LVL${level}`;
+    const snap = await getDoc(doc(db, "session_configs", docId));
+    if (snap.exists()) {
+      setSessionCount(snap.data().totalSessions || 12);
+    } else {
+      setSessionCount(12); // Default
+    }
+  };
+
+  const saveSessionConfig = async () => {
+    if (!selectedCourseId) return;
+    const docId = `SESS_${selectedCourseId}_LVL${selectedLevel}`;
+    try {
+      await setDoc(doc(db, "session_configs", docId), {
+        totalSessions: sessionCount,
+        updatedAt: Date.now()
+      });
+      alert("Pengaturan sesi tersimpan!");
+    } catch (e) { alert("Gagal simpan sesi"); }
+  };
+
+  // --- HANDLERS ---
+
+  const handleAddModule = () => {
+    if (newModule.trim()) {
+      setModules([...modules, newModule.trim()]);
+      setNewModule('');
+    }
+  };
+
+  const removeModule = (index: number) => {
+    setModules(modules.filter((_, i) => i !== index));
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.uid) return;
+    const uid = user?.uid || auth.currentUser?.uid;
+    if (!uid) return;
     setLoading(true);
     try {
-      let urlFoto = user?.photoURL || '';
+      let url = user?.photoURL || '';
       if (photoFile) {
-        const res = await studentService.uploadStudentPhoto(photoFile, `USER_${user.uid}`, 'users');
-        if (res.success) urlFoto = res.url!;
+        const res = await studentService.uploadStudentPhoto(photoFile, `USER_${uid}`, 'users');
+        if (res.success) url = res.url!;
       }
-      await setDoc(doc(db, 'users', user.uid), { displayName, photoURL: urlFoto }, { merge: true });
+      await setDoc(doc(db, 'users', uid), { displayName, photoURL: url, uid }, { merge: true });
       window.location.reload();
-    } catch (err) { alert('Gagal simpan profil.'); }
+    } catch (e) { alert("Gagal simpan profil"); }
     finally { setLoading(false); }
   };
 
-  if (!user) return <div className="p-20 text-center animate-pulse text-slate-400 tracking-widest">SINKRONISASI...</div>;
+  const handleAddCourse = async (name: string) => {
+    await addDoc(collection(db, "course_types"), { name, createdAt: Date.now() });
+    fetchCourses();
+  };
+
+  const handleDeleteCourse = async (id: string) => {
+    if (confirm("Hapus kursus ini?")) await deleteDoc(doc(db, "course_types", id));
+    fetchCourses();
+  };
+
+  if (!user) return <div className="p-20 text-center animate-pulse">Memuat...</div>;
 
   return (
-    <div className="max-w-7xl mx-auto pb-20 animate-fade-in px-4">
-      
-      {/* 1. TOP BAR - MINIMALIST */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-4">
-        <div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">Executive Panel</h1>
-          <p className="text-slate-500 font-medium">Manajemen identitas dan kontrol kurikulum sistem.</p>
-        </div>
-        <button 
-          onClick={logout}
-          className="flex items-center gap-2 px-6 py-3 bg-red-50 text-red-600 rounded-2xl font-bold hover:bg-red-100 transition-all active:scale-95"
-        >
-          <LogOut size={18} /> Sign Out
-        </button>
-      </div>
+    <div className="max-w-7xl mx-auto pb-20 animate-fade-in">
+      <h1 className="text-3xl font-black text-slate-800 mb-8 px-4">Pengaturan Sistem</h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         
-        {/* KOLOM KIRI: IDENTITAS (VIP STYLE) */}
-        <div className="lg:col-span-4 space-y-8">
-           <div className="bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden border border-white/5 group">
-              <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl"></div>
-              
-              <div className="flex justify-between items-start mb-10">
-                 <div className="flex items-center gap-2">
-                    <CreditCard className="text-blue-400" size={24} />
-                    <span className="text-[10px] font-black tracking-[0.4em] text-blue-200 uppercase">Digital Pass</span>
-                 </div>
-                 <div className="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-[8px] font-black rounded-full border border-emerald-500/30 uppercase tracking-widest">Active</div>
+        {/* SIDEBAR NAVIGATION */}
+        <div className="lg:col-span-1 space-y-2">
+          <button onClick={() => setActiveTab('PROFILE')} className={`w-full flex items-center gap-4 p-4 rounded-xl text-left transition-all ${activeTab === 'PROFILE' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+            <User size={20} /> <span className="font-bold text-sm">Profil Akun</span>
+          </button>
+          
+          {user.role === 'INSTRUCTOR' ? (
+            <>
+              <div className="pt-6 pb-2 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Kurikulum</div>
+              <button onClick={() => setActiveTab('COURSES')} className={`w-full flex items-center gap-4 p-4 rounded-xl text-left transition-all ${activeTab === 'COURSES' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+                <BookOpen size={20} /> <span className="font-bold text-sm">Jenis Kursus</span>
+              </button>
+              <button onClick={() => setActiveTab('CURRICULUM')} className={`w-full flex items-center gap-4 p-4 rounded-xl text-left transition-all ${activeTab === 'CURRICULUM' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+                <ListOrdered size={20} /> <span className="font-bold text-sm">Materi & Modul</span>
+              </button>
+              <button onClick={() => setActiveTab('SESSIONS')} className={`w-full flex items-center gap-4 p-4 rounded-xl text-left transition-all ${activeTab === 'SESSIONS' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+                <Layers size={20} /> <span className="font-bold text-sm">Total Sesi</span>
+              </button>
+              <button onClick={() => setActiveTab('SCHEDULE')} className={`w-full flex items-center gap-4 p-4 rounded-xl text-left transition-all ${activeTab === 'SCHEDULE' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+                <Clock size={20} /> <span className="font-bold text-sm">Jadwal Kelas</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="pt-6 pb-2 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Akademik</div>
+              <div className="w-full flex items-center gap-4 p-4 rounded-xl text-left bg-slate-50 border border-slate-100 opacity-70 cursor-not-allowed">
+                <GraduationCap size={20} className="text-slate-400" /> 
+                <div className="flex-1">
+                   <span className="font-bold text-sm block text-slate-500">Program Saya</span>
+                   <span className="text-[10px] text-slate-400">Lihat di menu Nilai</span>
+                </div>
               </div>
+            </>
+          )}
 
-              <div className="flex flex-col items-center mb-10">
-                 <div className="relative mb-6">
-                    <div className="w-32 h-32 rounded-full p-1 bg-gradient-to-tr from-blue-500 via-cyan-300 to-blue-600 shadow-2xl">
-                       <img src={user.photoURL || ''} alt="Profile" className="w-full h-full object-cover rounded-full bg-slate-800 border-4 border-[#0f172a]" />
-                    </div>
-                    <div className="absolute -bottom-1 -right-1 bg-blue-600 p-2 rounded-xl border-4 border-[#0f172a]">
-                       <BadgeCheck size={16} className="text-white" />
-                    </div>
-                 </div>
-                 <h2 className="text-2xl font-black text-center tracking-tight">{user.displayName || 'No Name'}</h2>
-                 <p className="text-blue-300/60 text-xs font-bold uppercase tracking-widest mt-1">{user.role}</p>
-              </div>
-
-              <div className="space-y-4 pt-8 border-t border-white/5">
-                 <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Credential ID</span>
-                    <span className="text-xs font-mono text-blue-100">{user.uid.slice(0, 12).toUpperCase()}</span>
-                 </div>
-                 <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">License</span>
-                    <span className="text-[10px] font-black text-emerald-400 tracking-widest">VIP ENTERPRISE</span>
-                 </div>
-              </div>
-           </div>
-
-           {/* EDIT PROFILE FORM - MINIMALIST */}
-           <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm">
-              <div className="flex justify-between items-center mb-6">
-                 <h3 className="font-black text-slate-800 text-sm uppercase tracking-widest">Edit Profil</h3>
-                 {!isEditing && <button onClick={() => setIsEditing(true)} className="text-blue-600 font-bold text-xs hover:underline">UBAH</button>}
-              </div>
-              
-              <form onSubmit={handleSaveProfile} className="space-y-5">
-                 {isEditing && (
-                    <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                       <Camera size={20} className="text-slate-400" />
-                       <input type="file" onChange={e => setPhotoFile(e.target.files ? e.target.files[0] : null)} className="text-[10px] text-slate-500" />
-                    </div>
-                 )}
-                 <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nama Lengkap</label>
-                    <input 
-                      type="text" 
-                      value={displayName} 
-                      onChange={e => setDisplayName(e.target.value)} 
-                      readOnly={!isEditing}
-                      className={`w-full px-4 py-3 rounded-xl border text-sm font-bold transition-all ${isEditing ? 'border-blue-200 focus:ring-4 focus:ring-blue-500/5' : 'border-transparent bg-slate-50 text-slate-500'}`} 
-                    />
-                 </div>
-                 {isEditing && (
-                    <button type="submit" disabled={loading} className="w-full py-3 bg-slate-900 text-white rounded-xl font-black text-xs shadow-lg flex justify-center items-center gap-2">
-                       <Save size={14} /> {loading ? 'SAVING...' : 'SIMPAN PERUBAHAN'}
-                    </button>
-                 )}
-              </form>
-           </div>
+          <div className="pt-8">
+            <button onClick={logout} className="w-full flex items-center gap-2 p-4 text-red-500 hover:bg-red-50 rounded-xl font-bold transition-colors">
+              <LogOut size={18} /> Keluar
+            </button>
+          </div>
         </div>
 
-        {/* KOLOM KANAN: MASTER DATA (ADMIN ONLY) */}
-        <div className="lg:col-span-8 space-y-8">
-           {user.role === 'INSTRUCTOR' && (
-             <>
-               {/* MODUL 1: MANAJEMEN KURSUS */}
-               <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="px-10 py-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                     <div className="flex items-center gap-4">
-                        <div className="p-3 bg-blue-600 rounded-2xl text-white shadow-lg shadow-blue-200">
-                           <BookOpen size={20} />
-                        </div>
-                        <div>
-                           <h3 className="font-black text-slate-800 text-xl">Daftar Kursus</h3>
-                           <p className="text-xs text-slate-500">Kelola varian program pendidikan LP3I.</p>
+        {/* MAIN CONTENT AREA */}
+        <div className="lg:col-span-3">
+          <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 min-h-[600px] p-8 relative">
+            
+            {/* 1. PROFILE TAB */}
+            {activeTab === 'PROFILE' && (
+              <div className="max-w-xl animate-fade-in">
+                <h2 className="text-2xl font-black text-slate-800 mb-6">Identitas Pengguna</h2>
+                <div className="flex items-center gap-6 mb-8 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                   <div className="w-24 h-24 rounded-full bg-slate-200 overflow-hidden border-4 border-white shadow-md">
+                      <img src={user.photoURL || ''} className="w-full h-full object-cover" alt="" />
+                   </div>
+                   <div>
+                      <h3 className="text-xl font-bold text-slate-800">{user.displayName}</h3>
+                      <p className="text-sm text-slate-500">{user.email}</p>
+                      <span className="inline-block mt-2 px-3 py-1 bg-blue-100 text-blue-700 text-[10px] font-bold rounded uppercase">{user.role}</span>
+                   </div>
+                </div>
+                <form onSubmit={handleSaveProfile} className="space-y-6">
+                   <div>
+                      <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Ganti Nama</label>
+                      <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 font-bold text-slate-800" />
+                   </div>
+                   <div>
+                      <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Upload Foto Baru</label>
+                      <input type="file" onChange={e => setPhotoFile(e.target.files ? e.target.files[0] : null)} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                   </div>
+                   <button disabled={loading} className="px-8 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg">
+                      {loading ? "Menyimpan..." : "Simpan Perubahan"}
+                   </button>
+                </form>
+
+                {/* DANGER ZONE: RESET DATABASE (Instruktur Only) */}
+                {user.role === 'INSTRUCTOR' && (
+                  <div className="mt-16 pt-8 border-t border-slate-100">
+                    <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
+                      <AlertTriangle className="text-red-500" />
+                      Zona Bahaya (Danger Zone)
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      
+                      {/* CARD 1: RESET SYSTEM (COURSES & CURRICULUM) */}
+                      <div className="relative overflow-hidden p-6 rounded-3xl border border-red-100 bg-red-50/30 group hover:border-red-200 transition-all">
+                         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <BookOpen size={80} className="text-red-500 transform rotate-12" />
+                         </div>
+                         <h4 className="text-lg font-black text-slate-800 mb-2">Reset Sistem Akademik</h4>
+                         <p className="text-xs text-slate-500 mb-6 leading-relaxed min-h-[60px]">
+                            Menghapus seluruh <b>Jenis Kursus</b>, <b>Kurikulum</b>, dan <b>Konfigurasi Sesi</b>. 
+                            Status program siswa akan di-reset (un-enroll), tapi data siswa TETAP ADA.
+                         </p>
+                         <button 
+                           onClick={async () => {
+                             if (confirm("KONFIRMASI: Hapus semua Data Kursus & Kurikulum?\n(Data siswa tidak akan dihapus, hanya di-reset programnya)")) {
+                               setLoading(true);
+                               try {
+                                 // 1. Hapus Master Data
+                                 const courseSnap = await getDocs(collection(db, "course_types"));
+                                 courseSnap.forEach(d => deleteDoc(d.ref));
+                                 
+                                 const currSnap = await getDocs(collection(db, "curriculums"));
+                                 currSnap.forEach(d => deleteDoc(d.ref));
+                                 
+                                 const sessSnap = await getDocs(collection(db, "session_configs"));
+                                 sessSnap.forEach(d => deleteDoc(d.ref));
+
+                                 // 4. Hapus Jadwal Kelas (Agar dashboard siswa bersih)
+                                 const scheduleSnap = await getDocs(collection(db, "class_schedules"));
+                                 scheduleSnap.forEach(d => deleteDoc(d.ref));
+
+                                 // 2. Un-enroll Siswa (Update only)
+                                 const studentsSnap = await getDocs(collection(db, "students"));
+                                 studentsSnap.forEach(d => setDoc(d.ref, { program: "", level: 1, classId: null }, { merge: true }));
+
+                                 alert("Sistem Akademik Berhasil Di-reset.");
+                                 window.location.reload();
+                               } catch (e) { alert("Error: " + e); setLoading(false); }
+                             }
+                           }}
+                           className="w-full py-3 bg-white border-2 border-red-100 text-red-500 font-bold rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                         >
+                           Reset Kursus & Kurikulum
+                         </button>
+                      </div>
+
+                      {/* CARD 2: WIPE STUDENTS (DATA PESERTA) */}
+                      <div className="relative overflow-hidden p-6 rounded-3xl border border-red-100 bg-red-50/30 group hover:border-red-200 transition-all">
+                         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <User size={80} className="text-red-500 transform -rotate-12" />
+                         </div>
+                         <h4 className="text-lg font-black text-slate-800 mb-2">Hapus Semua Peserta</h4>
+                         <p className="text-xs text-slate-500 mb-6 leading-relaxed min-h-[60px]">
+                            Menghapus <b>SEMUA DATA SISWA</b> dari tabel peserta.
+                            <br/><span className="text-red-500 font-bold">PERINGATAN:</span> Daftar siswa akan menjadi kosong melompong. Akun login mereka tidak terhapus.
+                         </p>
+                         <button 
+                           onClick={async () => {
+                             if (confirm("PERINGATAN FATAL: Apakah Anda yakin ingin MENGHAPUS SEMUA DATA PESERTA?\n\nDaftar siswa akan menjadi kosong. Tindakan ini tidak dapat dibatalkan.")) {
+                               if (confirm("YAKIN SEKALI LAGI? Data biodata, nilai, dan absensi mereka akan hilang selamanya.")) {
+                                 setLoading(true);
+                                 try {
+                                   const snap = await getDocs(collection(db, "students"));
+                                   const promises = snap.docs.map(d => deleteDoc(d.ref));
+                                   await Promise.all(promises);
+                                   
+                                   alert("DATABASE PESERTA TELAH DIKOSONGKAN.");
+                                   window.location.reload();
+                                 } catch (e) { alert("Error: " + e); setLoading(false); }
+                               }
+                             }
+                           }}
+                           className="w-full py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all shadow-red-200"
+                         >
+                           MUSNAHKAN DATA PESERTA
+                         </button>
+                      </div>
+
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 2. COURSES TAB */}
+            {activeTab === 'COURSES' && (
+              <div className="animate-fade-in">
+                 <h2 className="text-2xl font-black text-slate-800 mb-2">Jenis Kursus</h2>
+                 <p className="text-slate-500 text-sm mb-8">Tambah program studi baru yang tersedia di LP3I.</p>
+                 
+                 <div className="flex gap-2 mb-8">
+                    <input id="newCourseInput" type="text" placeholder="Nama Kursus (cth: Web Design)" className="flex-1 px-5 py-3 rounded-xl border border-slate-200 font-bold outline-none focus:border-blue-500" />
+                    <button 
+                      onClick={() => {
+                        const input = document.getElementById('newCourseInput') as HTMLInputElement;
+                        if (input.value) { handleAddCourse(input.value); input.value = ''; }
+                      }}
+                      className="px-6 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg"
+                    >
+                      TAMBAH
+                    </button>
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {courses.map(c => (
+                       <div key={c.id} className="flex justify-between items-center p-5 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-blue-200 transition-all">
+                          <span className="font-bold text-slate-700">{c.name}</span>
+                          <button onClick={() => handleDeleteCourse(c.id)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
+                       </div>
+                    ))}
+                 </div>
+              </div>
+            )}
+
+            {/* 3. CURRICULUM EDITOR (BARU & CANGGIH) */}
+            {activeTab === 'CURRICULUM' && (
+               <div className="animate-fade-in max-w-2xl">
+                  <div className="flex justify-between items-center mb-6">
+                     <h2 className="text-2xl font-black text-slate-800">Editor Kurikulum</h2>
+                     <button onClick={saveCurriculum} className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg font-bold hover:bg-emerald-600 shadow-md">
+                        <Save size={16} /> Simpan
+                     </button>
+                  </div>
+
+                  {/* Selector */}
+                  <div className="grid grid-cols-2 gap-4 mb-8">
+                     <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Pilih Kursus</label>
+                        <select 
+                          className="w-full p-3 rounded-xl border border-slate-200 font-bold text-slate-700 bg-white"
+                          value={selectedCourseId}
+                          onChange={e => setSelectedCourseId(e.target.value)}
+                        >
+                           <option value="">-- Pilih --</option>
+                           {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                     </div>
+                     <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Pilih Level</label>
+                        <div className="flex bg-slate-100 p-1 rounded-xl">
+                           {[1, 2, 3].map(lvl => (
+                              <button 
+                                key={lvl}
+                                onClick={() => setSelectedLevel(lvl)}
+                                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${selectedLevel === lvl ? 'bg-white shadow text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+                              >
+                                 Level {lvl}
+                              </button>
+                           ))}
                         </div>
                      </div>
                   </div>
-                  
-                  <div className="p-10">
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                        {courses.map(c => (
-                          <div key={c.id} className="flex justify-between items-center p-5 bg-white border border-slate-100 rounded-2xl hover:border-blue-200 hover:shadow-md transition-all group">
-                             <div className="flex items-center gap-3">
-                                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                <span className="text-sm font-black text-slate-700">{c.name}</span>
-                             </div>
-                             <button onClick={() => handleDeleteCourse(c.id)} className="opacity-0 group-hover:opacity-100 p-2 text-red-400 hover:bg-red-50 rounded-lg transition-all">
-                                <Trash2 size={16} />
-                             </button>
-                          </div>
-                        ))}
-                     </div>
 
-                     <div className="flex gap-3 bg-slate-900 p-2 rounded-2xl shadow-xl">
-                        <input 
-                          type="text" 
-                          placeholder="Ketik Nama Kursus Baru..." 
-                          className="flex-1 px-6 py-3 bg-transparent text-white text-sm font-bold outline-none"
-                          value={newCourse}
-                          onChange={e => setNewCourse(e.target.value)}
-                        />
-                        <button onClick={handleAddCourse} disabled={loading} className="px-6 py-3 bg-blue-600 text-white rounded-xl font-black text-xs hover:bg-blue-500 transition-all flex items-center gap-2">
-                           <Plus size={18} /> TAMBAH
+                  {/* List Materi */}
+                  {selectedCourseId ? (
+                     <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
+                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                           <ListOrdered size={18} className="text-blue-500" />
+                           Daftar Materi (Level {selectedLevel})
+                        </h3>
+                        
+                        <div className="space-y-2 mb-4">
+                           {modules.map((mod, idx) => (
+                              <div key={idx} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                                 <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">{idx + 1}</span>
+                                 <span className="flex-1 text-sm font-medium text-slate-700">{mod}</span>
+                                 <button onClick={() => removeModule(idx)} className="text-slate-300 hover:text-red-500"><Trash2 size={16} /></button>
+                              </div>
+                           ))}
+                           {modules.length === 0 && <p className="text-center text-slate-400 text-sm py-4 italic">Belum ada materi.</p>}
+                        </div>
+
+                        <div className="flex gap-2">
+                           <input 
+                             type="text" 
+                             className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-blue-500"
+                             placeholder="Tambah materi baru..."
+                             value={newModule}
+                             onChange={e => setNewModule(e.target.value)}
+                             onKeyDown={e => e.key === 'Enter' && handleAddModule()}
+                           />
+                           <button onClick={handleAddModule} className="p-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700"><Plus size={20} /></button>
+                        </div>
+                     </div>
+                  ) : (
+                     <div className="text-center py-10 text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
+                        Pilih kursus terlebih dahulu.
+                     </div>
+                  )}
+               </div>
+            )}
+
+            {/* 4. SESSIONS CONFIG */}
+            {activeTab === 'SESSIONS' && (
+               <div className="animate-fade-in max-w-xl">
+                  <h2 className="text-2xl font-black text-slate-800 mb-6">Konfigurasi Sesi</h2>
+                  
+                  {selectedCourseId ? (
+                     <div className="bg-slate-50 p-8 rounded-[2.5rem] text-center border border-slate-100">
+                        <div className="mb-6">
+                           <GraduationCap size={48} className="mx-auto text-blue-200 mb-4" />
+                           <h3 className="text-lg font-bold text-slate-700">Atur Total Pertemuan</h3>
+                           <p className="text-sm text-slate-500">Berapa kali pertemuan untuk menyelesaikan Level {selectedLevel}?</p>
+                        </div>
+
+                        <div className="flex items-center justify-center gap-6 mb-8">
+                           <button onClick={() => setSessionCount(c => Math.max(1, c - 1))} className="w-12 h-12 rounded-full bg-white shadow hover:bg-slate-100 font-bold text-xl">-</button>
+                           <div className="text-5xl font-black text-slate-800">{sessionCount}</div>
+                           <button onClick={() => setSessionCount(c => c + 1)} className="w-12 h-12 rounded-full bg-white shadow hover:bg-slate-100 font-bold text-xl">+</button>
+                        </div>
+
+                        <button onClick={saveSessionConfig} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition-all">
+                           SIMPAN PENGATURAN
                         </button>
                      </div>
-                  </div>
+                  ) : (
+                     <div className="text-center py-10 text-slate-400">Silakan kembali ke menu Kurikulum dan pilih kursus dulu.</div>
+                  )}
                </div>
+            )}
 
-               {/* MODUL 2 & 3: QUICK CONTROLS */}
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="bg-white rounded-[2.5rem] border border-slate-200 p-8 flex items-center gap-6 group hover:border-blue-400 transition-all cursor-pointer">
-                     <div className="p-5 bg-slate-100 rounded-[2rem] text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-all">
-                        <Layers size={32} />
-                     </div>
-                     <div>
-                        <h4 className="font-black text-slate-800 uppercase tracking-widest text-xs mb-1">Pengaturan Sesi</h4>
-                        <p className="text-xs text-slate-500">Konfigurasi total pertemuan per level.</p>
-                     </div>
-                  </div>
-
-                  <div className="bg-white rounded-[2.5rem] border border-slate-200 p-8 flex items-center gap-6 group hover:border-blue-400 transition-all cursor-pointer">
-                     <div className="p-5 bg-slate-100 rounded-[2rem] text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-all">
-                        <ListOrdered size={32} />
-                     </div>
-                     <div>
-                        <h4 className="font-black text-slate-800 uppercase tracking-widest text-xs mb-1">Update Kurikulum</h4>
-                        <p className="text-xs text-slate-500">Modifikasi daftar materi per tingkatan.</p>
-                     </div>
-                  </div>
+            {/* 5. SCHEDULE MANAGER */}
+            {activeTab === 'SCHEDULE' && (
+               <div className="animate-fade-in">
+                  <ScheduleManager />
                </div>
-             </>
-           )}
+            )}
+
+          </div>
         </div>
-
       </div>
     </div>
   );
