@@ -55,12 +55,14 @@ const Reports: React.FC = () => {
     }
   };
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (reportData) {
+      // Prioritaskan Nama Instruktur dari Kelas (Database)
+      // Jika tidak ada, baru fallback ke nama default atau user login
       const instructorName = (reportData as any).classInstructorName 
         || (user?.role === 'INSTRUCTOR' ? user.displayName : "Ahdi Yourse");
 
-      generateStudentPDF(reportData, {
+      await generateStudentPDF(reportData, {
         name: "LP3I COLLEGE INDRAMAYU",
         address: "Jl. Pahlawan No.9, Lemahmekar, Kec. Indramayu, Kabupaten Indramayu, Jawa Barat 45212",
         logoUrl: "",

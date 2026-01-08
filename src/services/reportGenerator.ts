@@ -12,24 +12,30 @@ const DEFAULT_CONFIG: InstitutionConfig = {
   instructorName: "Ahdi Yourse",
 };
 
-export const generateStudentPDF = (report: ComprehensiveReport, config: InstitutionConfig = DEFAULT_CONFIG) => {
+// Helper: Load Gambar dengan Sabar (Async)
+const loadImage = (url: string): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.src = url;
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+  });
+};
+
+export const generateStudentPDF = async (report: ComprehensiveReport, config: InstitutionConfig = DEFAULT_CONFIG) => {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const width = doc.internal.pageSize.getWidth();
   const height = doc.internal.pageSize.getHeight();
 
-  // --- 1. BACKGROUND BORDER IMAGE (METODE AMAN & OTOMATIS) ---
-  // import.meta.env.BASE_URL akan otomatis menyesuaikan:
-  // - Localhost: "/" -> "/border.png"
-  // - GitHub: "/nama-repo/" -> "/nama-repo/border.png"
+  // --- 1. BACKGROUND BORDER IMAGE ---
+  const baseUrl = import.meta.env.BASE_URL; 
+  const safeBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+
   try {
-    const baseUrl = import.meta.env.BASE_URL;
-    // Hapus slash di awal 'border.png' karena BASE_URL biasanya sudah punya slash di akhir
-    const borderPath = `${baseUrl}border.png`; 
-    
-    doc.addImage(borderPath, 'PNG', 0, 0, width, height);
+    const borderPath = `${safeBase}border.png`; 
+    const borderImage = await loadImage(borderPath);
+    doc.addImage(borderImage, 'PNG', 0, 0, width, height);
   } catch (e) {
-    // Jika file tidak ada, dia akan lewat ke sini tanpa error biru
-    console.warn("File /public/border.png belum tersedia.");
     doc.setDrawColor(230, 230, 230);
     doc.setLineWidth(0.1);
     doc.rect(5, 5, width - 10, height - 10);
@@ -127,34 +133,33 @@ export const generateStudentPDF = (report: ComprehensiveReport, config: Institut
     return [index + 1, grp.name, getPredicateLabel(letter), letter];
   });
 
-  // --- 6. TABEL MODERN (Clean Lines, Black Borders, Symmetrical) ---
+  // --- 6. TABEL MODERN ---
   cursorY += 15;
-  
   autoTable(doc, {
     startY: cursorY,
     head: [['No', 'Unit Kompetensi', 'Kualifikasi', 'Grade']],
     body: tableData,
-    theme: 'grid', // Pakai Grid agar bergaris penuh
+    theme: 'grid',
     margin: { left: 35, right: 35 },
-    tableLineColor: [0, 0, 0], // Garis Tabel Luar HITAM
+    tableLineColor: [0, 0, 0],
     tableLineWidth: 0.1,
     headStyles: {
       fillColor: [255, 255, 255], 
-      textColor: [0, 0, 0], // Header Teks Hitam
+      textColor: [0, 0, 0],
       fontStyle: 'bold',
-      font: 'times', // Font Times
-      lineWidth: 0.1, // Garis Header Hitam
+      font: 'times',
+      lineWidth: 0.1,
       lineColor: [0, 0, 0],
-      halign: 'center' // Rata Tengah Presisi
+      halign: 'center'
     },
     bodyStyles: {
       font: 'times',
-      textColor: [0, 0, 0], // Body Teks Hitam
-      lineColor: [0, 0, 0], // Garis Body Hitam
+      textColor: [0, 0, 0],
+      lineColor: [0, 0, 0],
       lineWidth: 0.1,
       cellPadding: 3,
       valign: 'middle',
-      halign: 'center' // Semua isi RATA TENGAH (Symmetrical)
+      halign: 'center'
     },
     columnStyles: {
       0: { cellWidth: 15 },
@@ -167,9 +172,8 @@ export const generateStudentPDF = (report: ComprehensiveReport, config: Institut
     }
   });
 
-  // --- 6. FOOTER ---
+  // --- 7. FOOTER (KEMBALI KE POSISI SEMULA) ---
   let finalY = (doc as any).lastAutoTable.finalY + 20;
-  
   if (finalY > height - 60) {
     doc.addPage();
     finalY = 40;
@@ -177,22 +181,38 @@ export const generateStudentPDF = (report: ComprehensiveReport, config: Institut
 
   const dateStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
+  // 1. Gambar TTD/Stempel (Layer Belakang)
+  try {
+    const ttdWidth = 35; // Dikecilkan sedikit
+    const ttdHeight = 35;
+    const centerX = (width - ttdWidth) / 2;
+    // Posisikan TTD sedikit turun lagi (+1 dari finalY)
+    const ttdY = finalY + 1; 
+    const ttdPath = `${safeBase}ttdsaya.png`;
+    const ttdImage = await loadImage(ttdPath);
+    doc.addImage(ttdImage, 'PNG', centerX, ttdY, ttdWidth, ttdHeight);
+  } catch (e) {
+    console.warn("TTD loading failed");
+  }
+
+  // 2. Teks (Posisi Semula yang Lega)
   doc.setFont('times', 'normal');
   doc.setFontSize(11);
   doc.setTextColor(60, 60, 60);
   doc.text(`Indramayu, ${dateStr}`, width / 2, finalY, { align: 'center' });
-  doc.text("Instruktur Pengampu,", width / 2, finalY + 6, { align: 'center' });
+  
+  finalY += 6;
+  doc.text("Instruktur Pengampu,", width / 2, finalY, { align: 'center' });
 
-  finalY += 35;
+  finalY += 28; // Jarak Lega untuk area TTD
   doc.setFont('times', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(0, 0, 0);
   doc.text(config.instructorName, width / 2, finalY, { align: 'center' });
   
-  // Garis bawah nama (HITAM)
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.5);
-  doc.line((width/2) - 25, finalY + 2, (width/2) + 25, finalY + 2);
+  doc.line((width/2) - 25, finalY + 1, (width/2) + 25, finalY + 1);
 
   // Simpan
   doc.save(`Sertifikat_${report.student.name.replace(/\s+/g, '_')}.pdf`);
