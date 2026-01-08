@@ -12,6 +12,7 @@ export const Navbar: React.FC = () => {
   const allMenuItems = [
     { name: 'Dashboard', icon: Home, href: '/' },
     { name: 'Data Peserta', icon: Users, href: '/students', roles: ['INSTRUCTOR'] },
+    { name: 'Rekan Kursus', icon: Users, href: '/classmates', roles: ['INSTRUCTOR', 'STUDENT'] },
     { name: 'Cek Nilai Siswa', icon: FileText, href: '/reports', roles: ['INSTRUCTOR', 'STUDENT'] },
     { name: 'Karir & Gaji', icon: TrendingUp, href: '/career', roles: ['INSTRUCTOR', 'STUDENT'] },
     { name: 'Pengaturan', icon: Settings, href: '/settings', roles: ['INSTRUCTOR', 'STUDENT'] },

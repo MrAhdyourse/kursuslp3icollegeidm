@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Lock, Mail, LogIn, AlertCircle, User, GraduationCap, MessageCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import logoImg from '../assets/images/logo.png';
+import welcomeImg from '../assets/images/selamatdatang.png';
 
 type LoginMode = 'INSTRUCTOR' | 'STUDENT';
 
@@ -17,7 +18,7 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
 
   // Konfigurasi Link WhatsApp
-  const waNumber = "628386705809";
+  const waNumber = "6283867055809";
   const waMessage = encodeURIComponent(
     `Halo Admin LP3I, saya ingin mengajukan pembuatan akun baru sebagai ${mode === 'INSTRUCTOR' ? 'Instruktur' : 'Peserta Didik'} untuk Sistem Kursus. Mohon bantuannya.`
   );
@@ -56,47 +57,45 @@ const Login: React.FC = () => {
       {/* Main Card */}
       <div className="relative z-10 w-full max-w-5xl bg-white/10 backdrop-blur-2xl rounded-3xl shadow-2xl overflow-hidden border border-white/20 flex flex-col md:flex-row min-h-[600px] animate-fade-in-up">
         
-        {/* SIDEBAR KIRI: LOGO & VISUAL */}
-        <div className={`hidden md:flex flex-col justify-between p-12 w-[45%] text-white transition-colors duration-500 ${
-           mode === 'INSTRUCTOR' ? 'bg-blue-600/80' : 'bg-emerald-600/80'
-        }`}>
-          <div>
+        {/* SIDEBAR KIRI: LOGO & VISUAL WITH WELCOME IMAGE */}
+        <div className="hidden md:flex flex-col justify-between p-12 w-[45%] relative text-white overflow-hidden border-r border-white/10">
+          
+          {/* Background Image Layer */}
+          <div className="absolute inset-0 z-0">
+            <img 
+              src={welcomeImg} 
+              alt="Welcome" 
+              className="w-full h-full object-cover scale-110 animate-[zoom-slow_20s_infinite_alternate]" 
+            />
+            {/* Dark Overlay Gradient - Menyesuaikan Mode */}
+            <div className={`absolute inset-0 transition-colors duration-500 ${
+              mode === 'INSTRUCTOR' 
+                ? 'bg-gradient-to-b from-blue-900/80 via-blue-900/40 to-slate-900/90' 
+                : 'bg-gradient-to-b from-emerald-900/80 via-emerald-900/40 to-slate-900/90'
+            }`}></div>
+          </div>
+
+          <div className="relative z-10">
             {/* LOGO AREA - PREMIUM DISPLAY */}
-            <div className="bg-white p-6 rounded-2xl w-fit shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] mb-10 group-hover:scale-105 transition-transform duration-500 relative z-10">
+            <div className="bg-white p-6 rounded-2xl w-fit shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] mb-10 group-hover:scale-105 transition-transform duration-500">
                <img src={logoImg} alt="LP3I Logo" className="h-20 w-auto object-contain drop-shadow-md" />
             </div>
             
             <h2 className="text-4xl font-bold leading-tight mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-100 to-white drop-shadow-sm">
-              Sistem Informasi <br/> Kursus & Pelatihan
+              E-Kursus <br/> LP3I Indramayu
             </h2>
             <p className="text-white/80 text-lg font-light leading-relaxed">
-              Platform terintegrasi untuk manajemen pembelajaran, penilaian, dan pelaporan akademik yang presisi.
+              Selamat datang di portal capaian belajar. Pantau kompetensi dan raih masa depan gemilang.
             </p>
           </div>
 
-          <div className="space-y-4">
-             {/* DEVELOPER CREDIT - SHINY & ELEGANT */}
-             <div className="relative overflow-hidden rounded-xl border border-white/20 bg-white/5 backdrop-blur-md p-4 transition-all duration-300 hover:bg-white/10 hover:border-white/40 hover:shadow-[0_0_30px_rgba(255,255,255,0.15)] group/card">
-                
-                {/* Efek Kilauan Berjalan (Shine Effect) */}
-                <div className="absolute top-0 -inset-full h-full w-1/2 z-5 block transform -skew-x-12 bg-gradient-to-r from-transparent to-white opacity-20 group-hover/card:animate-[shimmer_1s_infinite]"></div>
-
-                <div className="relative z-10 flex items-center gap-4">
-                   <div className="p-3 bg-gradient-to-br from-white/20 to-white/5 rounded-full border border-white/20 shadow-inner">
-                     <User size={22} className="text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.8)]" />
-                   </div>
-                   <div>
-                      <p className="text-[10px] text-blue-200 uppercase tracking-[0.25em] font-medium mb-1">Developed & Dedicated To</p>
-                      <div className="flex flex-col">
-                        <span className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-200 to-blue-200 drop-shadow-sm filter brightness-110">
-                          Ahdi Yourse
-                        </span>
-                        <span className="text-xs text-white/60 font-light tracking-wide">
-                          LP3I College Indramayu
-                        </span>
-                      </div>
-                   </div>
+          <div className="relative z-10">
+             {/* SIMPLIFIED DEDICATION */}
+             <div className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-xl inline-flex items-center gap-3 shadow-inner">
+                <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                   <User size={16} className="text-blue-200" />
                 </div>
+                <span className="text-xs font-medium tracking-wide text-blue-100 italic">Dedicated to LP3I College Indramayu</span>
              </div>
           </div>
         </div>

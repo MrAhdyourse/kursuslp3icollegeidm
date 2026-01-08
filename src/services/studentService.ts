@@ -20,8 +20,7 @@ const RECORDS_COLLECTION = "academic_records";
 
 export const studentService = {
   
-  // --- REAL-TIME LISTENERS ---
-
+  // Real-time Listener untuk Daftar Siswa (Full - Untuk Admin)
   subscribeToStudents: (callback: (data: Student[]) => void) => {
     const q = query(collection(db, STUDENTS_COLLECTION), orderBy("createdAt", "desc"));
     return onSnapshot(q, (snapshot) => {
@@ -29,6 +28,27 @@ export const studentService = {
         id: doc.id,
         ...doc.data()
       } as Student));
+      callback(students);
+    });
+  },
+
+  // Real-time Listener untuk Publik (Untuk sesama Siswa)
+  // Tidak menyertakan data sensitif di level koding (Safety)
+  subscribeToPublicStudents: (callback: (data: any[]) => void) => {
+    const q = query(collection(db, STUDENTS_COLLECTION), orderBy("name", "asc"));
+    return onSnapshot(q, (snapshot) => {
+      const students = snapshot.docs.map(doc => {
+        const d = doc.data();
+        return {
+          id: doc.id,
+          name: d.name,
+          avatarUrl: d.avatarUrl,
+          program: d.program,
+          classId: d.classId,
+          batch: d.batch,
+          status: d.status
+        };
+      });
       callback(students);
     });
   },

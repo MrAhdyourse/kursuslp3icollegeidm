@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, BookOpen, Layers, ListOrdered, Plus, Trash2, LogOut, Save, 
-  GraduationCap, AlertTriangle, Clock 
+  GraduationCap, AlertTriangle, Clock, TrendingUp, Award, CheckCircle2,
+  Quote 
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
 import { doc, setDoc, collection, getDocs, deleteDoc, addDoc, getDoc } from 'firebase/firestore'; 
 import { db, auth } from '../services/firebase';
 import ScheduleManager from '../components/ScheduleManager';
+import aboutImg from '../assets/images/tentangkami.png';
 
-type SettingTab = 'PROFILE' | 'COURSES' | 'CURRICULUM' | 'SESSIONS' | 'SCHEDULE';
+type SettingTab = 'PROFILE' | 'COURSES' | 'CURRICULUM' | 'SESSIONS' | 'SCHEDULE' | 'ABOUT';
 
 const Settings: React.FC = () => {
   const { user, logout } = useAuth();
@@ -193,7 +195,10 @@ const Settings: React.FC = () => {
             </>
           )}
 
-          <div className="pt-8">
+          <div className="pt-8 space-y-2">
+            <button onClick={() => setActiveTab('ABOUT')} className={`w-full flex items-center gap-4 p-4 rounded-xl text-left transition-all ${activeTab === 'ABOUT' ? 'bg-slate-800 text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+              <AlertTriangle size={20} /> <span className="font-bold text-sm">Tentang E-Kursus</span>
+            </button>
             <button onClick={logout} className="w-full flex items-center gap-2 p-4 text-red-500 hover:bg-red-50 rounded-xl font-bold transition-colors">
               <LogOut size={18} /> Keluar
             </button>
@@ -466,6 +471,81 @@ const Settings: React.FC = () => {
                <div className="animate-fade-in">
                   <ScheduleManager />
                </div>
+            )}
+
+            {/* 6. ABOUT TAB */}
+            {activeTab === 'ABOUT' && (
+              <div className="max-w-4xl mx-auto py-10 animate-fade-in">
+                
+                {/* Header Section */}
+                <div className="text-center mb-12">
+                  <div className="w-20 h-20 bg-gradient-to-tr from-blue-600 to-blue-400 rounded-3xl mx-auto flex items-center justify-center text-white shadow-2xl mb-6 rotate-12 transition-transform hover:rotate-0 duration-500">
+                    <BookOpen size={40} />
+                  </div>
+                  <h2 className="text-4xl font-black text-slate-800 tracking-tighter">E-KURSUS</h2>
+                  <p className="text-blue-600 font-bold tracking-[0.3em] text-[10px] mt-2 uppercase">Platform v1.5 Professional</p>
+                </div>
+
+                {/* Developer Message Section - THE LUXURY CARD (MOBILE OPTIMIZED) */}
+                <div className="relative bg-white rounded-[2.5rem] md:rounded-[3rem] shadow-2xl shadow-blue-100 border border-slate-100 overflow-hidden flex flex-col md:flex-row mb-12">
+                   {/* Left Side: Image Model */}
+                   <div className="w-full md:w-2/5 relative h-64 md:h-auto overflow-hidden">
+                      <img src={aboutImg} className="w-full h-full object-cover object-top md:object-cover scale-105 hover:scale-110 transition-transform duration-1000" alt="Developer Model" />
+                      {/* Responsive Gradient Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:via-transparent md:to-white"></div>
+                   </div>
+
+                   {/* Right Side: Message Content */}
+                   <div className="w-full md:w-3/5 p-8 md:p-12 flex flex-col justify-center relative">
+                      <Quote className="absolute top-4 right-6 md:top-8 md:right-10 text-slate-100 opacity-50 md:opacity-100 w-16 h-16 md:w-24 md:h-24" />
+                      
+                      <div className="relative z-10">
+                        <h3 className="text-[10px] md:text-xs font-black text-blue-600 uppercase tracking-[0.2em] mb-3 md:mb-4">Pesan Dari Pengembang</h3>
+                        <p className="font-serif text-lg md:text-2xl text-slate-700 leading-relaxed italic">
+                          "E-Kursus lahir dari sebuah visi untuk mendigitalisasi setiap capaian belajar dengan presisi tinggi. Meski masih dalam tahap awal pengembangan, sistem ini dibangun dengan dedikasi penuh untuk memberikan standar akademik terbaik bagi institusi."
+                        </p>
+                        
+                        <div className="mt-6 md:mt-8 flex items-center gap-4">
+                           <div className="h-[1px] w-8 md:w-12 bg-blue-600"></div>
+                           <span className="font-sans font-bold text-slate-800 text-[10px] md:text-sm tracking-widest uppercase">Ahdi Yourse & Dev Team</span>
+                        </div>
+                      </div>
+                   </div>
+                </div>
+
+                {/* System Specs Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-4">
+                  <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100">
+                    <h4 className="font-bold text-slate-800 mb-2">Misi Utama</h4>
+                    <p className="text-sm text-slate-500 leading-relaxed">
+                      Mengintegrasikan pemantauan kehadiran, penilaian praktikum, dan pelaporan capaian belajar secara real-time untuk LP3I College Indramayu.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm group hover:border-blue-200 transition-all">
+                      <TrendingUp className="text-blue-500 mb-2 group-hover:scale-110 transition-transform" size={24} />
+                      <h5 className="font-bold text-xs text-slate-800 uppercase">Analisis Data</h5>
+                      <p className="text-[10px] text-slate-400 mt-1 leading-tight">Visualisasi performa dengan 10+ diagram interaktif.</p>
+                    </div>
+                    <div className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm group hover:border-orange-200 transition-all">
+                      <Award className="text-orange-500 mb-2 group-hover:scale-110 transition-transform" size={24} />
+                      <h5 className="font-bold text-xs text-slate-800 uppercase">Sertifikasi</h5>
+                      <p className="text-[10px] text-slate-400 mt-1 leading-tight">Generate sertifikat otomatis berstandar formal.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-16 pt-8 border-t border-slate-100 flex flex-wrap justify-center gap-8 text-slate-300">
+                   <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"><CheckCircle2 size={14} className="text-blue-500" /> Cloud Sync</div>
+                   <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"><CheckCircle2 size={14} className="text-blue-500" /> Real-time DB</div>
+                   <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"><CheckCircle2 size={14} className="text-blue-500" /> Data Secure</div>
+                </div>
+
+                <div className="text-center mt-12">
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.5em]">Dedicated to LP3I College Indramayu</p>
+                </div>
+              </div>
             )}
 
           </div>

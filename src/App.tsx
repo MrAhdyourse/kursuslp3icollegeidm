@@ -13,6 +13,7 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import CareerSimulator from './pages/CareerSimulator';
+import Classmates from './pages/Classmates';
 
 // Komponen Penjaga Pintu (Guard)
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -93,6 +94,13 @@ function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <PageTransition><CareerSimulator /></PageTransition>
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/classmates" element={
+          <ProtectedRoute>
+            <Layout>
+              <PageTransition><Classmates /></PageTransition>
             </Layout>
           </ProtectedRoute>
         } />
