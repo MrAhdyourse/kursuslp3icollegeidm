@@ -150,7 +150,10 @@ const Dashboard: React.FC = () => {
                </div>
                <div className="px-5 py-3 border-t border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-b-xl">
                   <span className="text-xs text-slate-500 font-medium">Instruktur: {kelas.instructorId}</span>
-                  <Link to={`/students`} className="text-brand-blue hover:text-blue-800 text-sm font-medium flex items-center gap-1">
+                  <Link 
+                    to={user?.role === 'INSTRUCTOR' ? `/students` : `/classmates`} 
+                    className="text-brand-blue hover:text-blue-800 text-sm font-medium flex items-center gap-1"
+                  >
                     Lihat <ArrowRight size={14} />
                   </Link>
                </div>
