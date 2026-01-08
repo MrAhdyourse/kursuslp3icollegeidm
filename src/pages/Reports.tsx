@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, FileSpreadsheet, Search, UserCheck, Award, Calendar, ChevronDown, Loader2 } from 'lucide-react';
+import { FileText, FileSpreadsheet, Search, UserCheck, Award, Calendar, ChevronDown, Loader2, Lock } from 'lucide-react';
 import { studentService } from '../services/studentService';
 import { useAuth } from '../context/AuthContext';
 import { generateStudentPDF, generateStudentExcel } from '../services/reportGenerator';
@@ -25,9 +25,7 @@ const Reports: React.FC = () => {
           const matchedStudent = await studentService.getStudentByEmail(user.email);
           if (matchedStudent) {
             console.log("Auto-Detect: Data siswa ditemukan via email!", matchedStudent.name);
-            targetStudentId = matchedStudent.id; // Pakai ID asli dari database Siswa
-          } else {
-            console.log("Auto-Detect: Email tidak ditemukan di data siswa, mencoba UID...");
+            targetStudentId = matchedStudent.id; 
           }
         }
 
@@ -59,8 +57,6 @@ const Reports: React.FC = () => {
 
   const handleDownloadPDF = () => {
     if (reportData) {
-      // Prioritaskan Nama Instruktur dari Kelas (Database)
-      // Jika tidak ada, baru fallback ke nama default atau user login
       const instructorName = (reportData as any).classInstructorName 
         || (user?.role === 'INSTRUCTOR' ? user.displayName : "Ahdi Yourse");
 
@@ -77,6 +73,10 @@ const Reports: React.FC = () => {
   const handleDownloadExcel = () => {
     if (reportData) generateStudentExcel(reportData);
   };
+
+  // LOGIKA KUNCI TOMBOL (Hanya Lulus yang bisa download)
+  const isGraduated = reportData?.student.status === 'GRADUATED';
+  const canDownload = isGraduated || user?.role === 'INSTRUCTOR'; // Instruktur selalu bisa download
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -146,6 +146,22 @@ const Reports: React.FC = () => {
       {!loading && reportData && (
         <div className="animate-fade-in-up space-y-8">
           
+          {/* BANNER PERINGATAN (JIKA BELUM LULUS) */}
+          {!canDownload && (
+            <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-xl flex items-start gap-3 shadow-sm animate-pulse-slow">
+              <Lock className="text-amber-500 shrink-0 mt-0.5" size={20} />
+              <div>
+                <h4 className="font-bold text-amber-800 flex items-center gap-2">
+                  Dokumen Terkunci
+                  <span className="text-[10px] bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full uppercase">Status: {reportData.student.status}</span>
+                </h4>
+                <p className="text-sm text-amber-700 mt-1">
+                  Mohon maaf, Anda belum dapat mengunduh Sertifikat Kompetensi. Dokumen hanya tersedia bagi peserta didik yang telah menyelesaikan seluruh program dan dinyatakan <b>LULUS (GRADUATED)</b>.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="bg-gradient-to-r from-brand-blue to-brand-dark p-6 text-white">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -174,20 +190,37 @@ const Reports: React.FC = () => {
                 <UserCheck className="text-brand-blue" />
                 Laporan Capaian Belajar
               </h3>
+              
+              {/* TOMBOL DOWNLOAD (DENGAN LOGIKA KUNCI) */}
               <div className="flex gap-3">
+                {/* PDF BUTTON */}
                 <button 
-                  onClick={handleDownloadPDF}
-                  className="flex items-center gap-2 bg-brand-red hover:bg-red-700 text-white px-5 py-2 rounded-lg shadow-sm transition-all active:scale-95 text-sm font-medium"
+                  onClick={canDownload ? handleDownloadPDF : undefined}
+                  disabled={!canDownload}
+                  className={`flex items-center gap-2 px-5 py-2 rounded-lg shadow-sm transition-all text-sm font-medium ${
+                    canDownload 
+                      ? 'bg-brand-red hover:bg-red-700 text-white active:scale-95 shadow-red-200' 
+                      : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 opacity-70'
+                  }`}
+                  title={!canDownload ? "Menunggu status LULUS" : "Download Sertifikat"}
                 >
-                  <FileText size={16} />
-                  Download PDF
+                  {!canDownload ? <Lock size={16} /> : <FileText size={16} />}
+                  Download Sertifikat
                 </button>
+
+                {/* EXCEL BUTTON */}
                 <button 
-                  onClick={handleDownloadExcel}
-                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg shadow-sm transition-all active:scale-95 text-sm font-medium"
+                  onClick={canDownload ? handleDownloadExcel : undefined}
+                  disabled={!canDownload}
+                  className={`flex items-center gap-2 px-5 py-2 rounded-lg shadow-sm transition-all text-sm font-medium ${
+                    canDownload 
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95 shadow-emerald-200' 
+                      : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 opacity-70'
+                  }`}
+                  title={!canDownload ? "Menunggu status LULUS" : "Download Transkrip"}
                 >
-                  <FileSpreadsheet size={16} />
-                  Download Excel
+                  {!canDownload ? <Lock size={16} /> : <FileSpreadsheet size={16} />}
+                  Download Transkrip
                 </button>
               </div>
             </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, X, FileText, Users, Home, Settings } from 'lucide-react';
+import { Menu, X, FileText, Users, Home, Settings, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import logoImg from '../assets/images/logo.png';
@@ -13,6 +13,7 @@ export const Navbar: React.FC = () => {
     { name: 'Dashboard', icon: Home, href: '/' },
     { name: 'Data Peserta', icon: Users, href: '/students', roles: ['INSTRUCTOR'] },
     { name: 'Cek Nilai Siswa', icon: FileText, href: '/reports', roles: ['INSTRUCTOR', 'STUDENT'] },
+    { name: 'Karir & Gaji', icon: TrendingUp, href: '/career', roles: ['INSTRUCTOR', 'STUDENT'] },
     { name: 'Pengaturan', icon: Settings, href: '/settings', roles: ['INSTRUCTOR', 'STUDENT'] },
   ];
 
