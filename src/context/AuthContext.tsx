@@ -11,7 +11,7 @@ import type { UserProfile } from '../types';
 interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
-  login: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, pass: string) => Promise<{ success: boolean; error?: string; user?: UserProfile }>;
   logout: () => Promise<void>;
 }
 
@@ -74,7 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const docSnap = await getDoc(docRef);
       
       if (docSnap.exists()) {
-        const userData = docSnap.data() as UserProfile;
+        const userData = { uid: result.user.uid, ...docSnap.data() } as UserProfile;
         
         if (userData.status === 'BLOCKED') {
           await signOut(auth); // Tendang keluar lagi
@@ -87,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         setUser(userData);
-        return { success: true };
+        return { success: true, user: userData };
       } else {
         // DATA TIDAK DITEMUKAN DI FIRESTORE
         await signOut(auth);

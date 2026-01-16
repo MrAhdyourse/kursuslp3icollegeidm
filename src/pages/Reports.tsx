@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { FileText, FileSpreadsheet, Search, UserCheck, Award, Calendar, ChevronDown, Loader2, Lock } from 'lucide-react';
 import { studentService } from '../services/studentService';
 import { useAuth } from '../context/AuthContext';
-import { generateStudentPDF, generateStudentExcel } from '../services/reportGenerator';
+import { generateCertificate, downloadPDF } from '../utils/certificates/generator';
+import type { CertificateType } from '../utils/certificates/generator';
+import { generateStudentExcel } from '../services/reportGenerator';
 import { StudentStatistics } from '../components/StudentStatistics';
 import type { Student, ComprehensiveReport } from '../types';
 
@@ -56,20 +58,21 @@ const Reports: React.FC = () => {
   };
 
   const handleDownloadPDF = async () => {
-    if (reportData) {
-      // Prioritaskan Nama Instruktur dari Kelas (Database)
-      // Jika tidak ada, baru fallback ke nama default atau user login
-      const instructorName = (reportData as any).classInstructorName 
-        || (user?.role === 'INSTRUCTOR' ? user.displayName : "Ahdi Yourse");
+    if (!reportData) return;
 
-      await generateStudentPDF(reportData, {
-        name: "LP3I COLLEGE INDRAMAYU",
-        address: "Jl. Pahlawan No.9, Lemahmekar, Kec. Indramayu, Kabupaten Indramayu, Jawa Barat 45212",
-        logoUrl: "",
-        headOfInstitution: "H. Fulan bin Fulan, M.Kom",
-        instructorName: instructorName
-      });
+    // Deteksi Tipe Sertifikat berdasarkan Program
+    const programName = reportData.student.program.toLowerCase();
+    let certType: CertificateType = 'GENERAL';
+
+    if (programName.includes('english') || programName.includes('inggris')) {
+      certType = 'ENGLISH';
+    } else if (programName.includes('computer') || programName.includes('office') || programName.includes('design')) {
+      certType = 'COMPUTER';
     }
+
+    // Generate & Download
+    const doc = generateCertificate(reportData, certType);
+    downloadPDF(doc, `Sertifikat_${reportData.student.name}_${certType}.pdf`);
   };
 
   const handleDownloadExcel = () => {

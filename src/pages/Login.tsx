@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Mail, LogIn, AlertCircle, User, GraduationCap, MessageCircle } from 'lucide-react';
+import { Lock, Mail, LogIn, AlertCircle, User, GraduationCap, MessageCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import logoImg from '../assets/images/logo.png';
 import welcomeImg from '../assets/images/selamatdatang.png';
@@ -11,10 +11,11 @@ const Login: React.FC = () => {
   const [mode, setMode] = useState<LoginMode>('INSTRUCTOR');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const navigate = useNavigate();
 
   // Konfigurasi Link WhatsApp
@@ -31,7 +32,18 @@ const Login: React.FC = () => {
 
     const res = await login(email, password);
     
-    if (res.success) {
+    if (res.success && res.user) {
+      // STRICT ROLE GUARD: Pastikan role user sesuai dengan mode login yang dipilih
+      const selectedRoleName = mode === 'INSTRUCTOR' ? 'Instruktur' : 'Peserta Kursus';
+      const actualRoleName = res.user.role === 'INSTRUCTOR' ? 'Instruktur' : 'Peserta Kursus';
+
+      if (res.user.role !== mode) {
+        await logout(); 
+        setError(`Akses Ditolak: Akun Anda terdaftar sebagai ${actualRoleName}. Anda tidak memiliki otoritas untuk masuk sebagai ${selectedRoleName}.`);
+        setLoading(false);
+        return;
+      }
+
       navigate('/'); 
     } else {
       setError(res.error || "Login gagal. Periksa kembali data Anda.");
@@ -132,22 +144,25 @@ const Login: React.FC = () => {
                }`}
              >
                <GraduationCap size={18} />
-               Peserta Didik
+               Peserta Kursus
              </button>
           </div>
 
           {/* FORM */}
           <div className="mb-8">
             <h3 className={`text-xl font-bold mb-1 ${mode === 'INSTRUCTOR' ? 'text-blue-700' : 'text-emerald-700'}`}>
-              Login {mode === 'INSTRUCTOR' ? 'Instruktur' : 'Peserta'}
+              Login {mode === 'INSTRUCTOR' ? 'Instruktur' : 'Peserta Kursus'}
             </h3>
             <p className="text-slate-500 text-sm">Masukan kredensial akun Anda untuk melanjutkan.</p>
           </div>
 
           {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg flex items-center gap-2 text-sm animate-fade-in">
-              <AlertCircle size={16} />
-              {error}
+            <div key={error} className="mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-4 rounded-r-xl flex items-start gap-3 text-sm animate-shake shadow-sm shadow-red-100">
+              <AlertCircle size={20} className="text-red-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-red-800">Gagal Mengakses</p>
+                <p className="mt-0.5 leading-relaxed">{error}</p>
+              </div>
             </div>
           )}
 
@@ -176,9 +191,9 @@ const Login: React.FC = () => {
               <div className="relative group">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-blue transition-colors" size={18} />
                 <input 
-                  type="password" 
+                  type={showPassword ? "text" : "password"} 
                   required
-                  className={`w-full pl-10 pr-4 py-3.5 border bg-slate-50 rounded-xl focus:bg-white outline-none transition-all ${
+                  className={`w-full pl-10 pr-12 py-3.5 border bg-slate-50 rounded-xl focus:bg-white outline-none transition-all ${
                     mode === 'INSTRUCTOR' 
                     ? 'focus:ring-2 focus:ring-blue-100 focus:border-blue-500' 
                     : 'focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500'
@@ -187,6 +202,14 @@ const Login: React.FC = () => {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
             </div>
 
