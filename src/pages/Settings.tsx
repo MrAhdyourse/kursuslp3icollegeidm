@@ -223,6 +223,34 @@ const Settings: React.FC = () => {
                       <span className="inline-block mt-2 px-3 py-1 bg-blue-100 text-blue-700 text-[10px] font-bold rounded uppercase">{user.role}</span>
                    </div>
                 </div>
+
+                {/* INFO OTORITAS PROGRAM (KHUSUS INSTRUKTUR) */}
+                {user.role === 'INSTRUCTOR' && (
+                  <div className="mb-8 p-6 bg-yellow-50 rounded-2xl border border-yellow-100">
+                    <h4 className="text-sm font-bold text-yellow-800 uppercase tracking-wide mb-3 flex items-center gap-2">
+                       <Award size={16} /> Program Studi yang Diampu
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                       {(!user.authorizedPrograms || user.authorizedPrograms.length === 0) ? (
+                          <span className="text-xs text-yellow-600 italic">Belum ada program yang ditugaskan. Hubungi Admin Master.</span>
+                       ) : user.authorizedPrograms.includes('ALL') ? (
+                          <span className="px-3 py-1 bg-yellow-400 text-yellow-900 text-xs font-black rounded-lg shadow-sm">
+                             AKSES PENUH (SUPER ADMIN)
+                          </span>
+                       ) : (
+                          user.authorizedPrograms.map((prog, idx) => (
+                             <span key={idx} className="px-3 py-1 bg-white border border-yellow-200 text-yellow-700 text-xs font-bold rounded-lg shadow-sm">
+                                {prog}
+                             </span>
+                          ))
+                       )}
+                    </div>
+                    <p className="text-[10px] text-yellow-600/70 mt-3 leading-relaxed">
+                       *Sistem hanya akan menampilkan data siswa yang terdaftar dalam program studi di atas.
+                    </p>
+                  </div>
+                )}
+
                 <form onSubmit={handleSaveProfile} className="space-y-6">
                    <div>
                       <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Ganti Nama</label>

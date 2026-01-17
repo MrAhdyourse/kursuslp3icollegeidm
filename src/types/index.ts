@@ -12,7 +12,8 @@ export interface UserProfile {
   photoURL?: string;
   role: UserRole;
   status: UserStatus;
-  licenseExpiry?: number; // Timestamp kapan akun expired
+  licenseExpiry?: number; 
+  authorizedPrograms?: string[]; // Array program yang boleh diakses (e.g., ['ENGLISH', 'OFFICE'] atau ['ALL'])
   createdAt: number;
 }
 

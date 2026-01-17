@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Users, Plus, Edit, Trash2, Search, Filter, BookOpen } from 'lucide-react';
 import { studentService } from '../services/studentService';
+import { useAuth } from '../context/AuthContext';
 import type { Student } from '../types';
 import { StudentFormModal } from '../components/StudentFormModal';
 import { GradingModal } from '../components/GradingModal';
 import { MOCK_CLASSES } from '../utils/mockData';
 
 const Students: React.FC = () => {
+  const { user } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -51,7 +53,6 @@ const Students: React.FC = () => {
       if (!res.success) {
         alert(`Gagal menghapus: ${res.error}`);
       }
-      // Tidak perlu panggil fetch lagi, onSnapshot akan urus sendiri
     }
   };
 
@@ -60,10 +61,40 @@ const Students: React.FC = () => {
     return foundClass ? foundClass.name : '-';
   };
 
+  // --- LOGIKA FILTERING UTAMA (SECURITY & SEARCH) ---
   const filteredStudents = students.filter(s => {
+    // 1. Filter Search (Nama/NIS)
     const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.nis.includes(searchTerm);
+    
+    // 2. Filter Dropdown Kelas
     const matchesClass = selectedClassFilter === 'ALL' || s.classId === selectedClassFilter;
-    return matchesSearch && matchesClass;
+    
+    // 3. ROW-LEVEL SECURITY: Filter Berdasarkan Izin Instruktur
+    // Jika user adalah instruktur biasa (bukan superadmin/ALL), filter programnya
+    let isAuthorized = true;
+    if (user?.role === 'INSTRUCTOR') {
+       const allowedPrograms = user.authorizedPrograms || [];
+       
+       // Jika punya akses 'ALL' atau array kosong (anggap akses semua sementara/dev), lolos
+       if (allowedPrograms.includes('ALL') || allowedPrograms.length === 0) {
+         isAuthorized = true;
+       } else {
+         // DEBUG: Membantu diagnosa kenapa data tidak muncul
+         console.log(`[AUTH CHECK] Student: "${s.name}" | Program: "${s.program}" | Allowed: ${JSON.stringify(allowedPrograms)}`);
+         
+         isAuthorized = allowedPrograms.some(prog => 
+           s.program && s.program.trim().toUpperCase().includes(prog.trim().toUpperCase())
+         );
+
+         if (isAuthorized) {
+           console.log(`✅ MATCH FOUND for ${s.name}`);
+         } else {
+           console.log(`❌ NO MATCH for ${s.name}`);
+         }
+       }
+    }
+
+    return matchesSearch && matchesClass && isAuthorized;
   });
 
   return (

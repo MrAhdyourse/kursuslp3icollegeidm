@@ -35,7 +35,9 @@ const Reports: React.FC = () => {
         setReportData(data);
         setLoading(false);
       } else if (user?.role === 'INSTRUCTOR') {
-        const data = await studentService.getAllStudents();
+        // FILTER SECURITY: Kirim daftar program yang diizinkan ke service
+        const authorizedPrograms = user.authorizedPrograms || [];
+        const data = await studentService.getAllStudents(authorizedPrograms);
         setStudents(data);
       }
     };

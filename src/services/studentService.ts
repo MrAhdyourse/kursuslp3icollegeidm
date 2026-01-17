@@ -124,14 +124,27 @@ export const studentService = {
     }
   },
 
-  async getAllStudents() {
+  async getAllStudents(filterPrograms?: string[]) {
     try {
       const q = query(collection(db, STUDENTS_COLLECTION), orderBy("name", "asc"));
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
+      const allStudents = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Student[];
+
+      // Jika tidak ada filter atau user punya akses 'ALL', kembalikan semua
+      if (!filterPrograms || filterPrograms.length === 0 || filterPrograms.includes('ALL')) {
+        return allStudents;
+      }
+
+      // Filter Logic: Siswa hanya muncul jika programnya mengandung kata kunci yang diizinkan
+      return allStudents.filter(student => 
+        filterPrograms.some(allowed => 
+          student.program && student.program.toUpperCase().includes(allowed.toUpperCase())
+        )
+      );
+
     } catch (error) {
       console.error("Error getting students: ", error);
       return [];
