@@ -23,6 +23,29 @@ interface StudentStatisticsProps {
 
 type ChartType = 'AREA' | 'BAR' | 'LINE' | 'COMPOSED' | 'SCATTER' | 'RADAR_BIG' | 'PIE' | 'RADIAL' | 'FUNNEL' | 'TREEMAP';
 
+interface ChartButtonProps {
+  type: ChartType;
+  icon: any;
+  label: string;
+  activeType: ChartType;
+  onClick: (type: ChartType) => void;
+}
+
+const ChartButton = ({ type, icon: Icon, label, activeType, onClick }: ChartButtonProps) => (
+  <button
+    onClick={() => onClick(type)}
+    className={`p-2 rounded-lg flex items-center gap-2 text-xs font-bold transition-all ${
+      activeType === type 
+        ? 'bg-brand-blue text-white shadow-md scale-105' 
+        : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200'
+    }`}
+    title={label}
+  >
+    <Icon size={16} />
+    <span className="hidden lg:inline">{label}</span>
+  </button>
+);
+
 export const StudentStatistics: React.FC<StudentStatisticsProps> = ({ report }) => {
   const { modules } = report;
   const [chartType, setChartType] = useState<ChartType>('AREA');
@@ -79,7 +102,6 @@ export const StudentStatistics: React.FC<StudentStatisticsProps> = ({ report }) 
       case 'RADAR_BIG': return <CompetencyRadarChart data={radarData} />;
       case 'PIE': return <ScorePieChart data={pieData} />;
       
-      // Inline Renderers for Less Common Charts (To save file count, or create files later if needed)
       case 'COMPOSED':
         return (
           <ResponsiveContainer width="100%" height="100%">
@@ -135,20 +157,6 @@ export const StudentStatistics: React.FC<StudentStatisticsProps> = ({ report }) 
     }
   };
 
-  const ChartButton = ({ type, icon: Icon, label }: { type: ChartType; icon: any; label: string }) => (
-    <button
-      onClick={() => setChartType(type)}
-      className={`p-2 rounded-lg flex items-center gap-2 text-xs font-bold transition-all ${
-        chartType === type 
-          ? 'bg-brand-blue text-white shadow-md scale-105' 
-          : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200'
-      }`}
-      title={label}
-    >
-      <Icon size={16} />
-      <span className="hidden lg:inline">{label}</span>
-    </button>
-  );
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -163,16 +171,16 @@ export const StudentStatistics: React.FC<StudentStatisticsProps> = ({ report }) 
         
         {/* CHART SWITCHER ARSENAL */}
         <div className="flex flex-wrap gap-2">
-          <ChartButton type="AREA" icon={Activity} label="Area" />
-          <ChartButton type="BAR" icon={BarChart2} label="Bar" />
-          <ChartButton type="LINE" icon={Activity} label="Line" />
-          <ChartButton type="COMPOSED" icon={Layers} label="Combo" />
-          <ChartButton type="SCATTER" icon={Circle} label="Scatter" />
-          <ChartButton type="RADAR_BIG" icon={Hexagon} label="Radar" />
-          <ChartButton type="PIE" icon={PieIcon} label="Pie" />
-          <ChartButton type="RADIAL" icon={Target} label="Radial" />
-          <ChartButton type="FUNNEL" icon={Filter} label="Funnel" />
-          <ChartButton type="TREEMAP" icon={Layout} label="Tree" />
+          <ChartButton type="AREA" icon={Activity} label="Area" activeType={chartType} onClick={setChartType} />
+          <ChartButton type="BAR" icon={BarChart2} label="Bar" activeType={chartType} onClick={setChartType} />
+          <ChartButton type="LINE" icon={Activity} label="Line" activeType={chartType} onClick={setChartType} />
+          <ChartButton type="COMPOSED" icon={Layers} label="Combo" activeType={chartType} onClick={setChartType} />
+          <ChartButton type="SCATTER" icon={Circle} label="Scatter" activeType={chartType} onClick={setChartType} />
+          <ChartButton type="RADAR_BIG" icon={Hexagon} label="Radar" activeType={chartType} onClick={setChartType} />
+          <ChartButton type="PIE" icon={PieIcon} label="Pie" activeType={chartType} onClick={setChartType} />
+          <ChartButton type="RADIAL" icon={Target} label="Radial" activeType={chartType} onClick={setChartType} />
+          <ChartButton type="FUNNEL" icon={Filter} label="Funnel" activeType={chartType} onClick={setChartType} />
+          <ChartButton type="TREEMAP" icon={Layout} label="Tree" activeType={chartType} onClick={setChartType} />
         </div>
       </div>
 

@@ -26,43 +26,6 @@ export const GradingModal: React.FC<GradingModalProps> = ({ isOpen, onClose, stu
     date: new Date().toISOString().split('T')[0]
   });
 
-  // 1. Load Data Nilai & Kurikulum
-  useEffect(() => {
-    if (isOpen && student) {
-      loadGradeData();
-      fetchCurriculumForStudent();
-    }
-  }, [isOpen, student]);
-
-  // 2. Auto-Fill Topic saat Ganti Sesi
-  useEffect(() => {
-    if (activeSession && curriculumTopics.length > 0) {
-      // Cek apakah data sudah ada di database
-      const existingRec = records[activeSession];
-      
-      if (existingRec) {
-        // Jika ada record, pakai data record
-        setFormData({
-          topic: (existingRec as any).moduleInfo?.title || '',
-          attendance: existingRec.attendance,
-          score: existingRec.grades[0].score.toString(),
-          notes: existingRec.instructorNotes || '',
-          date: new Date(existingRec.date).toISOString().split('T')[0]
-        });
-      } else {
-        // Jika BARU, coba Auto-Fill dari Kurikulum
-        const suggestion = curriculumTopics[activeSession - 1]; // Array index 0-based
-        setFormData({
-          topic: suggestion || '', // Auto-fill jika ada
-          attendance: 'HADIR',
-          score: '',
-          notes: '',
-          date: new Date().toISOString().split('T')[0]
-        });
-      }
-    }
-  }, [activeSession, records, curriculumTopics]);
-
   const fetchCurriculumForStudent = async () => {
     if (!student) return;
     try {
@@ -100,6 +63,14 @@ export const GradingModal: React.FC<GradingModalProps> = ({ isOpen, onClose, stu
     });
     setRecords(recMap);
   };
+
+  // 1. Load Data Nilai & Kurikulum
+  useEffect(() => {
+    if (isOpen && student) {
+      loadGradeData();
+      fetchCurriculumForStudent();
+    }
+  }, [isOpen, student]);
 
   const handleSave = async () => {
     if (!student) return;

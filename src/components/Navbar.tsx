@@ -5,12 +5,12 @@ import { useAuth } from '../context/AuthContext';
 import logoImg from '../assets/images/logo.png';
 
 export const Navbar: React.FC = () => {
-  const { user } = useAuth(); // Ambil data user login
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = React.useState(false);
 
   // Menu items config
   const allMenuItems = [
-    { name: 'Dashboard', icon: Home, href: '/' },
+    { name: 'Beranda', icon: Home, href: '/' },
     { name: 'Data Peserta', icon: Users, href: '/students', roles: ['INSTRUCTOR'] },
     { name: 'Rekan Kursus', icon: Users, href: '/classmates', roles: ['INSTRUCTOR', 'STUDENT'] },
     { name: 'Cek Nilai Siswa', icon: FileText, href: '/reports', roles: ['INSTRUCTOR', 'STUDENT'] },
@@ -24,21 +24,15 @@ export const Navbar: React.FC = () => {
   );
 
   return (
-    <nav className="fixed w-full z-50 top-0 start-0 bg-brand-blue/95 backdrop-blur-md shadow-2xl">
+    <nav className="fixed w-full z-50 top-0 start-0 bg-brand-blue/85 backdrop-blur-xl border-b border-white/10 shadow-2xl">
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between mx-auto p-4">
           
-          {/* Logo / Brand Section - CLASSIC ACADEMIC STYLE */}
+          {/* Logo / Brand Section */}
           <Link to="/" className="flex items-center group">
-            
-            {/* Logo Image */}
             <img src={logoImg} alt="Logo" className="w-10 h-10 object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-300" />
-
-            {/* Vertical Divider */}
             <div className="h-8 w-[1px] bg-white/20 mx-4"></div>
-
-            {/* Typography */}
             <div className="flex flex-col justify-center">
               <span className="font-serif text-2xl font-bold text-white tracking-wide leading-none">
                 E-KURSUS
@@ -78,7 +72,7 @@ export const Navbar: React.FC = () => {
         </div>
       </div>
 
-      {/* Mobile Menu Dropdown (Animation wrapper could be added here) */}
+      {/* Mobile Menu Dropdown */}
       {isOpen && (
         <div className="md:hidden bg-brand-dark/95 backdrop-blur-xl border-t border-white/10">
           <ul className="flex flex-col p-4 font-medium">

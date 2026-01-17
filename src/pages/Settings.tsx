@@ -156,36 +156,36 @@ const Settings: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto pb-20 animate-fade-in">
-      <h1 className="text-3xl font-black text-slate-800 mb-8 px-4">Pengaturan Sistem</h1>
+      <h1 className="text-4xl font-black text-slate-800 tracking-tight mb-8 px-4">Pengaturan Sistem</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         
         {/* SIDEBAR NAVIGATION */}
         <div className="lg:col-span-1 space-y-2">
-          <button onClick={() => setActiveTab('PROFILE')} className={`w-full flex items-center gap-4 p-4 rounded-xl text-left transition-all ${activeTab === 'PROFILE' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+          <button onClick={() => setActiveTab('PROFILE')} className={`w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-300 ${activeTab === 'PROFILE' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/30' : 'bg-white/50 hover:bg-white/80 text-slate-500 hover:text-blue-600'}`}>
             <User size={20} /> <span className="font-bold text-sm">Profil Akun</span>
           </button>
           
           {user.role === 'INSTRUCTOR' ? (
             <>
-              <div className="pt-6 pb-2 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Kurikulum</div>
-              <button onClick={() => setActiveTab('COURSES')} className={`w-full flex items-center gap-4 p-4 rounded-xl text-left transition-all ${activeTab === 'COURSES' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+              <div className="pt-6 pb-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Kurikulum</div>
+              <button onClick={() => setActiveTab('COURSES')} className={`w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-300 ${activeTab === 'COURSES' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/30' : 'bg-white/50 hover:bg-white/80 text-slate-500 hover:text-blue-600'}`}>
                 <BookOpen size={20} /> <span className="font-bold text-sm">Jenis Kursus</span>
               </button>
-              <button onClick={() => setActiveTab('CURRICULUM')} className={`w-full flex items-center gap-4 p-4 rounded-xl text-left transition-all ${activeTab === 'CURRICULUM' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+              <button onClick={() => setActiveTab('CURRICULUM')} className={`w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-300 ${activeTab === 'CURRICULUM' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/30' : 'bg-white/50 hover:bg-white/80 text-slate-500 hover:text-blue-600'}`}>
                 <ListOrdered size={20} /> <span className="font-bold text-sm">Materi & Modul</span>
               </button>
-              <button onClick={() => setActiveTab('SESSIONS')} className={`w-full flex items-center gap-4 p-4 rounded-xl text-left transition-all ${activeTab === 'SESSIONS' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+              <button onClick={() => setActiveTab('SESSIONS')} className={`w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-300 ${activeTab === 'SESSIONS' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/30' : 'bg-white/50 hover:bg-white/80 text-slate-500 hover:text-blue-600'}`}>
                 <Layers size={20} /> <span className="font-bold text-sm">Total Sesi</span>
               </button>
-              <button onClick={() => setActiveTab('SCHEDULE')} className={`w-full flex items-center gap-4 p-4 rounded-xl text-left transition-all ${activeTab === 'SCHEDULE' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+              <button onClick={() => setActiveTab('SCHEDULE')} className={`w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-300 ${activeTab === 'SCHEDULE' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/30' : 'bg-white/50 hover:bg-white/80 text-slate-500 hover:text-blue-600'}`}>
                 <Clock size={20} /> <span className="font-bold text-sm">Jadwal Kelas</span>
               </button>
             </>
           ) : (
             <>
-              <div className="pt-6 pb-2 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Akademik</div>
-              <div className="w-full flex items-center gap-4 p-4 rounded-xl text-left bg-slate-50 border border-slate-100 opacity-70 cursor-not-allowed">
+              <div className="pt-6 pb-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Akademik</div>
+              <div className="w-full flex items-center gap-4 p-4 rounded-2xl text-left bg-white/30 border border-white/50 opacity-60 cursor-not-allowed">
                 <GraduationCap size={20} className="text-slate-400" /> 
                 <div className="flex-1">
                    <span className="font-bold text-sm block text-slate-500">Program Saya</span>
@@ -196,10 +196,10 @@ const Settings: React.FC = () => {
           )}
 
           <div className="pt-8 space-y-2">
-            <button onClick={() => setActiveTab('ABOUT')} className={`w-full flex items-center gap-4 p-4 rounded-xl text-left transition-all ${activeTab === 'ABOUT' ? 'bg-slate-800 text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+            <button onClick={() => setActiveTab('ABOUT')} className={`w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-300 ${activeTab === 'ABOUT' ? 'bg-slate-800 text-white shadow-lg' : 'bg-white/50 hover:bg-white/80 text-slate-500 hover:text-slate-800'}`}>
               <AlertTriangle size={20} /> <span className="font-bold text-sm">Tentang E-Kursus</span>
             </button>
-            <button onClick={logout} className="w-full flex items-center gap-2 p-4 text-red-500 hover:bg-red-50 rounded-xl font-bold transition-colors">
+            <button onClick={logout} className="w-full flex items-center gap-2 p-4 text-red-500 hover:bg-red-50 rounded-2xl font-bold transition-colors">
               <LogOut size={18} /> Keluar
             </button>
           </div>
@@ -207,45 +207,45 @@ const Settings: React.FC = () => {
 
         {/* MAIN CONTENT AREA */}
         <div className="lg:col-span-3">
-          <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 min-h-[600px] p-8 relative">
+          <div className="glass-panel min-h-[600px] p-8 relative">
             
             {/* 1. PROFILE TAB */}
             {activeTab === 'PROFILE' && (
               <div className="max-w-xl animate-fade-in">
                 <h2 className="text-2xl font-black text-slate-800 mb-6">Identitas Pengguna</h2>
-                <div className="flex items-center gap-6 mb-8 p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                   <div className="w-24 h-24 rounded-full bg-slate-200 overflow-hidden border-4 border-white shadow-md">
+                <div className="flex items-center gap-6 mb-8 p-6 bg-white/50 rounded-3xl border border-white/60 shadow-sm backdrop-blur-sm">
+                   <div className="w-24 h-24 rounded-full bg-slate-100 overflow-hidden border-4 border-white shadow-lg">
                       <img src={user.photoURL || ''} className="w-full h-full object-cover" alt="" />
                    </div>
                    <div>
-                      <h3 className="text-xl font-bold text-slate-800">{user.displayName}</h3>
-                      <p className="text-sm text-slate-500">{user.email}</p>
-                      <span className="inline-block mt-2 px-3 py-1 bg-blue-100 text-blue-700 text-[10px] font-bold rounded uppercase">{user.role}</span>
+                      <h3 className="text-2xl font-black text-slate-800">{user.displayName}</h3>
+                      <p className="text-sm text-slate-500 font-medium">{user.email}</p>
+                      <span className="inline-block mt-3 px-4 py-1.5 bg-blue-100 text-blue-700 text-[10px] font-black rounded-lg uppercase tracking-wider">{user.role}</span>
                    </div>
                 </div>
 
                 {/* INFO OTORITAS PROGRAM (KHUSUS INSTRUKTUR) */}
                 {user.role === 'INSTRUCTOR' && (
-                  <div className="mb-8 p-6 bg-yellow-50 rounded-2xl border border-yellow-100">
-                    <h4 className="text-sm font-bold text-yellow-800 uppercase tracking-wide mb-3 flex items-center gap-2">
+                  <div className="mb-8 p-6 bg-amber-50/80 rounded-3xl border border-amber-100/50">
+                    <h4 className="text-sm font-bold text-amber-800 uppercase tracking-wide mb-3 flex items-center gap-2">
                        <Award size={16} /> Program Studi yang Diampu
                     </h4>
                     <div className="flex flex-wrap gap-2">
                        {(!user.authorizedPrograms || user.authorizedPrograms.length === 0) ? (
-                          <span className="text-xs text-yellow-600 italic">Belum ada program yang ditugaskan. Hubungi Admin Master.</span>
+                          <span className="text-xs text-amber-600 italic font-medium">Belum ada program yang ditugaskan. Hubungi Admin Master.</span>
                        ) : user.authorizedPrograms.includes('ALL') ? (
-                          <span className="px-3 py-1 bg-yellow-400 text-yellow-900 text-xs font-black rounded-lg shadow-sm">
+                          <span className="px-3 py-1 bg-amber-400 text-amber-900 text-xs font-black rounded-lg shadow-sm shadow-amber-200">
                              AKSES PENUH (SUPER ADMIN)
                           </span>
                        ) : (
                           user.authorizedPrograms.map((prog, idx) => (
-                             <span key={idx} className="px-3 py-1 bg-white border border-yellow-200 text-yellow-700 text-xs font-bold rounded-lg shadow-sm">
+                             <span key={idx} className="px-3 py-1 bg-white border border-amber-200 text-amber-700 text-xs font-bold rounded-lg shadow-sm">
                                 {prog}
                              </span>
                           ))
                        )}
                     </div>
-                    <p className="text-[10px] text-yellow-600/70 mt-3 leading-relaxed">
+                    <p className="text-[10px] text-amber-700/60 mt-3 leading-relaxed font-medium">
                        *Sistem hanya akan menampilkan data siswa yang terdaftar dalam program studi di atas.
                     </p>
                   </div>
@@ -253,14 +253,14 @@ const Settings: React.FC = () => {
 
                 <form onSubmit={handleSaveProfile} className="space-y-6">
                    <div>
-                      <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Ganti Nama</label>
-                      <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 font-bold text-slate-800" />
+                      <label className="text-xs font-bold text-slate-400 uppercase block mb-2 tracking-wide">Ganti Nama</label>
+                      <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} className="glass-input w-full font-bold text-slate-800" />
                    </div>
                    <div>
-                      <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Upload Foto Baru</label>
-                      <input type="file" onChange={e => setPhotoFile(e.target.files ? e.target.files[0] : null)} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                      <label className="text-xs font-bold text-slate-400 uppercase block mb-2 tracking-wide">Upload Foto Baru</label>
+                      <input type="file" onChange={e => setPhotoFile(e.target.files ? e.target.files[0] : null)} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors" />
                    </div>
-                   <button disabled={loading} className="px-8 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg">
+                   <button disabled={loading} className="px-8 py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 w-full md:w-auto">
                       {loading ? "Menyimpan..." : "Simpan Perubahan"}
                    </button>
                 </form>
@@ -364,7 +364,7 @@ const Settings: React.FC = () => {
                  <p className="text-slate-500 text-sm mb-8">Tambah program studi baru yang tersedia di LP3I.</p>
                  
                  <div className="flex gap-2 mb-8">
-                    <input id="newCourseInput" type="text" placeholder="Nama Kursus (cth: Web Design)" className="flex-1 px-5 py-3 rounded-xl border border-slate-200 font-bold outline-none focus:border-blue-500" />
+                    <input id="newCourseInput" type="text" placeholder="Nama Kursus (cth: Web Design)" className="glass-input flex-1 font-bold" />
                     <button 
                       onClick={() => {
                         const input = document.getElementById('newCourseInput') as HTMLInputElement;
@@ -378,7 +378,7 @@ const Settings: React.FC = () => {
 
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {courses.map(c => (
-                       <div key={c.id} className="flex justify-between items-center p-5 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-blue-200 transition-all">
+                       <div key={c.id} className="flex justify-between items-center p-5 bg-white/50 rounded-2xl border border-white/60 group hover:border-blue-200 transition-all shadow-sm">
                           <span className="font-bold text-slate-700">{c.name}</span>
                           <button onClick={() => handleDeleteCourse(c.id)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
                        </div>
@@ -402,7 +402,7 @@ const Settings: React.FC = () => {
                      <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Pilih Kursus</label>
                         <select 
-                          className="w-full p-3 rounded-xl border border-slate-200 font-bold text-slate-700 bg-white"
+                          className="glass-input w-full font-bold text-slate-700"
                           value={selectedCourseId}
                           onChange={e => setSelectedCourseId(e.target.value)}
                         >
@@ -428,7 +428,7 @@ const Settings: React.FC = () => {
 
                   {/* List Materi */}
                   {selectedCourseId ? (
-                     <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
+                     <div className="bg-slate-50/50 rounded-3xl p-6 border border-slate-100/50">
                         <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
                            <ListOrdered size={18} className="text-blue-500" />
                            Daftar Materi (Level {selectedLevel})
@@ -436,8 +436,8 @@ const Settings: React.FC = () => {
                         
                         <div className="space-y-2 mb-4">
                            {modules.map((mod, idx) => (
-                              <div key={idx} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
-                                 <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">{idx + 1}</span>
+                              <div key={idx} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-white/60 shadow-sm">
+                                 <span className="w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold">{idx + 1}</span>
                                  <span className="flex-1 text-sm font-medium text-slate-700">{mod}</span>
                                  <button onClick={() => removeModule(idx)} className="text-slate-300 hover:text-red-500"><Trash2 size={16} /></button>
                               </div>
@@ -448,7 +448,7 @@ const Settings: React.FC = () => {
                         <div className="flex gap-2">
                            <input 
                              type="text" 
-                             className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-blue-500"
+                             className="glass-input flex-1 text-sm"
                              placeholder="Tambah materi baru..."
                              value={newModule}
                              onChange={e => setNewModule(e.target.value)}
@@ -471,7 +471,7 @@ const Settings: React.FC = () => {
                   <h2 className="text-2xl font-black text-slate-800 mb-6">Konfigurasi Sesi</h2>
                   
                   {selectedCourseId ? (
-                     <div className="bg-slate-50 p-8 rounded-[2.5rem] text-center border border-slate-100">
+                     <div className="bg-slate-50/50 p-8 rounded-[2.5rem] text-center border border-slate-100">
                         <div className="mb-6">
                            <GraduationCap size={48} className="mx-auto text-blue-200 mb-4" />
                            <h3 className="text-lg font-bold text-slate-700">Atur Total Pertemuan</h3>
@@ -504,7 +504,7 @@ const Settings: React.FC = () => {
             {/* 6. ABOUT TAB */}
             {activeTab === 'ABOUT' && (
               <div className="max-w-4xl mx-auto py-10 animate-fade-in">
-                
+                {/* ... (About content remains similar, just removed dark mode classes implicitly by full replacement) ... */}
                 {/* Header Section */}
                 <div className="text-center mb-12">
                   <div className="w-20 h-20 bg-gradient-to-tr from-blue-600 to-blue-400 rounded-3xl mx-auto flex items-center justify-center text-white shadow-2xl mb-6 rotate-12 transition-transform hover:rotate-0 duration-500">
@@ -514,18 +514,15 @@ const Settings: React.FC = () => {
                   <p className="text-blue-600 font-bold tracking-[0.3em] text-[10px] mt-2 uppercase">Platform v1.5 Professional</p>
                 </div>
 
-                {/* Developer Message Section - THE LUXURY CARD (MOBILE OPTIMIZED) */}
+                {/* Developer Message Section */}
                 <div className="relative bg-white rounded-[2.5rem] md:rounded-[3rem] shadow-2xl shadow-blue-100 border border-slate-100 overflow-hidden flex flex-col md:flex-row mb-12">
-                   {/* Left Side: Image Model */}
                    <div className="w-full md:w-2/5 relative h-64 md:h-auto overflow-hidden">
                       <img src={aboutImg} className="w-full h-full object-cover object-top md:object-cover scale-105 hover:scale-110 transition-transform duration-1000" alt="Developer Model" />
-                      {/* Responsive Gradient Overlay */}
                       <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:via-transparent md:to-white"></div>
                    </div>
 
-                   {/* Right Side: Message Content */}
                    <div className="w-full md:w-3/5 p-8 md:p-12 flex flex-col justify-center relative">
-                      <Quote className="absolute top-4 right-6 md:top-8 md:right-10 text-slate-100 opacity-50 md:opacity-100 w-16 h-16 md:w-24 md:h-24" />
+                      <Quote className="absolute top-4 right-6 md:top-8 md:right-10 text-slate-100 opacity-50 w-16 h-16 md:w-24 md:h-24" />
                       
                       <div className="relative z-10">
                         <h3 className="text-[10px] md:text-xs font-black text-blue-600 uppercase tracking-[0.2em] mb-3 md:mb-4">Pesan Dari Pengembang</h3>

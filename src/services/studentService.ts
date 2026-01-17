@@ -133,11 +133,18 @@ export const studentService = {
         ...doc.data()
       })) as Student[];
 
-      // Jika tidak ada filter atau user punya akses 'ALL', kembalikan semua
-      if (!filterPrograms || filterPrograms.length === 0 || filterPrograms.includes('ALL')) {
+      // SKENARIO 1: Super Admin (ALL) atau Tidak ada filter (Hati-hati, default behavior)
+      if (!filterPrograms || filterPrograms.includes('ALL')) {
         return allStudents;
       }
 
+      // SKENARIO 2: Filter Diberikan tapi KOSONG -> BLOKIR TOTAL (Strict Activation)
+      // Artinya user ini belum punya 'authorizedPrograms'
+      if (filterPrograms.length === 0) {
+        return []; 
+      }
+
+      // SKENARIO 3: Filter Normal
       // Filter Logic: Siswa hanya muncul jika programnya mengandung kata kunci yang diizinkan
       return allStudents.filter(student => 
         filterPrograms.some(allowed => 

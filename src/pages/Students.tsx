@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Plus, Edit, Trash2, Search, Filter, BookOpen } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Search, Filter, BookOpen, AlertTriangle } from 'lucide-react';
 import { studentService } from '../services/studentService';
 import { useAuth } from '../context/AuthContext';
 import type { Student } from '../types';
@@ -71,14 +71,21 @@ const Students: React.FC = () => {
     
     // 3. ROW-LEVEL SECURITY: Filter Berdasarkan Izin Instruktur
     // Jika user adalah instruktur biasa (bukan superadmin/ALL), filter programnya
-    let isAuthorized = true;
+    let isAuthorized = false; // Default: DITOLAK (Strict Mode)
+
     if (user?.role === 'INSTRUCTOR') {
        const allowedPrograms = user.authorizedPrograms || [];
        
-       // Jika punya akses 'ALL' atau array kosong (anggap akses semua sementara/dev), lolos
-       if (allowedPrograms.includes('ALL') || allowedPrograms.length === 0) {
-         isAuthorized = true;
-       } else {
+       // SKENARIO 1: Belum ada izin sama sekali -> TOLAK
+       if (allowedPrograms.length === 0) {
+          isAuthorized = false; 
+       } 
+       // SKENARIO 2: Punya akses 'ALL' (Super Admin) -> TERIMA SEMUA
+       else if (allowedPrograms.includes('ALL')) {
+          isAuthorized = true;
+       } 
+       // SKENARIO 3: Punya izin spesifik -> CEK PENCOCOKAN
+       else {
          // DEBUG: Membantu diagnosa kenapa data tidak muncul
          console.log(`[AUTH CHECK] Student: "${s.name}" | Program: "${s.program}" | Allowed: ${JSON.stringify(allowedPrograms)}`);
          
@@ -92,25 +99,30 @@ const Students: React.FC = () => {
            console.log(`❌ NO MATCH for ${s.name}`);
          }
        }
+    } else {
+       // Jika bukan instruktur (misal: Student), logika filter ini mungkin tidak relevan di halaman ini
+       // Tapi untuk keamanan, kita set false kecuali ada logika lain nanti.
+       // (Saat ini halaman Students.tsx hanya untuk Instruktur, jadi aman)
+       isAuthorized = false; 
     }
 
     return matchesSearch && matchesClass && isAuthorized;
   });
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in space-y-8">
       {/* ... (Header Section) ... */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Data Peserta</h1>
-          <p className="text-slate-500 mt-2">Kelola {students.length} peserta kursus aktif.</p>
+          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Data Peserta</h1>
+          <p className="text-slate-500 font-medium mt-2">Kelola {students.length} peserta kursus aktif.</p>
         </div>
         {/* ... (Search & Filter Section) ... */}
-        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+        <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
           <div className="relative">
-             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+             <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
              <select 
-               className="w-full md:w-48 pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-blue outline-none appearance-none bg-white"
+               className="glass-input w-full md:w-56 pl-12"
                value={selectedClassFilter}
                onChange={e => setSelectedClassFilter(e.target.value)}
              >
@@ -118,68 +130,81 @@ const Students: React.FC = () => {
                {MOCK_CLASSES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
              </select>
           </div>
-          <div className="relative flex-1 md:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <div className="relative flex-1 md:w-72">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text" 
-              placeholder="Cari nama..." 
-              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-blue outline-none"
+              placeholder="Cari nama atau NIS..." 
+              className="glass-input w-full pl-12"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
             />
           </div>
-          <button onClick={handleAdd} className="bg-brand-blue hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-md">
-            <Plus size={18} /> Tambah Peserta
+          <button onClick={handleAdd} className="btn-primary px-6 py-3 flex items-center gap-2 text-sm">
+            <Plus size={18} /> Tambah
           </button>
         </div>
       </div>
 
       {/* TABLE */}
-      {/* ... (Table content - remains similar but uses real-time students state) ... */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="glass-table-container">
         {loading ? (
-          <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-blue"></div></div>
+          <div className="flex items-center justify-center h-80"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div></div>
+        ) : (user?.role === 'INSTRUCTOR' && (!user.authorizedPrograms || user.authorizedPrograms.length === 0)) ? (
+           // EMPTY STATE KHUSUS: BELUM AKTIVASI
+           <div className="flex flex-col items-center justify-center h-96 text-center p-8">
+              <div className="w-24 h-24 bg-yellow-50 rounded-full flex items-center justify-center mb-6 animate-pulse border border-yellow-100">
+                 <AlertTriangle size={48} className="text-yellow-500" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-800 mb-2">Akses Belum Dikonfigurasi</h3>
+              <p className="text-slate-500 max-w-md mx-auto leading-relaxed mb-8">
+                 Halo <b>{user.displayName}</b>, akun Anda saat ini belum diberikan izin untuk mengakses program studi manapun.
+              </p>
+              <div className="glass-panel p-6 max-w-lg mx-auto">
+                 Silakan hubungi <b>Admin Master (Ahdi Aghni)</b> untuk melakukan aktivasi akses program pada akun Anda.
+              </div>
+           </div>
         ) : filteredStudents.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-slate-400"><Users size={48} className="mb-4 opacity-20" /><p>Belum ada data.</p></div>
+          <div className="flex flex-col items-center justify-center h-80 text-slate-400"><Users size={64} className="mb-4 opacity-20" /><p className="font-medium">Belum ada data siswa yang cocok.</p></div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left text-slate-600">
-              <thead className="text-xs text-slate-700 uppercase bg-slate-50 border-b border-slate-200">
+            <table className="glass-table w-full">
+              <thead>
                 <tr>
-                  <th className="px-6 py-4">Peserta</th>
-                  <th className="px-6 py-4">Kelas & Program</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-center">Aksi</th>
+                  <th className="pl-8 text-left">Peserta Didik</th>
+                  <th className="text-left">Kelas & Program</th>
+                  <th className="text-center">Status</th>
+                  <th className="text-center pr-8">Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredStudents.map((student) => (
-                  <tr key={student.id} className="bg-white border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden shrink-0">
-                          {student.avatarUrl ? <img src={student.avatarUrl} className="w-full h-full object-cover" /> : <Users size={20} className="m-2.5 text-slate-400" />}
+                  <tr key={student.id} className="group transition-all duration-200">
+                    <td className="pl-8">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 overflow-hidden shrink-0 shadow-sm group-hover:scale-110 transition-transform">
+                          {student.avatarUrl ? <img src={student.avatarUrl} className="w-full h-full object-cover" /> : <Users size={24} className="m-3 text-slate-300" />}
                         </div>
                         <div>
-                          <div className="font-bold text-slate-900">{student.name}</div>
-                          <div className="text-[10px] text-slate-500 uppercase font-mono">{student.nis}</div>
+                          <div className="font-bold text-slate-800 text-base">{student.name}</div>
+                          <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">{student.nis}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="font-bold text-brand-blue">{getClassName(student.classId)}</div>
-                      <div className="text-xs text-slate-500">{student.program} (Lvl {(student as any).level || 1})</div>
+                    <td>
+                      <div className="font-bold text-blue-700">{getClassName(student.classId)}</div>
+                      <div className="text-xs text-slate-500 font-medium mt-0.5">{student.program} (Lvl {(student as any).level || 1})</div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${student.status === 'ACTIVE' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                    <td className="text-center">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border ${student.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
                         {student.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => handleGrade(student)} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg border border-emerald-100" title="Buku Nilai"><BookOpen size={16} /></button>
-                        <button onClick={() => handleEdit(student)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-100" title="Edit"><Edit size={16} /></button>
-                        <button onClick={() => handleDelete(student.id, student.name)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg border border-red-100" title="Hapus"><Trash2 size={16} /></button>
+                    <td className="text-center pr-8">
+                      <div className="flex items-center justify-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => handleGrade(student)} className="w-9 h-9 rounded-xl bg-white border border-emerald-100 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200 hover:scale-110 transition-all shadow-sm flex items-center justify-center" title="Buku Nilai"><BookOpen size={16} /></button>
+                        <button onClick={() => handleEdit(student)} className="w-9 h-9 rounded-xl bg-white border border-blue-100 text-blue-600 hover:bg-blue-50 hover:border-blue-200 hover:scale-110 transition-all shadow-sm flex items-center justify-center" title="Edit"><Edit size={16} /></button>
+                        <button onClick={() => handleDelete(student.id, student.name)} className="w-9 h-9 rounded-xl bg-white border border-red-100 text-red-500 hover:bg-red-50 hover:border-red-200 hover:scale-110 transition-all shadow-sm flex items-center justify-center" title="Hapus"><Trash2 size={16} /></button>
                       </div>
                     </td>
                   </tr>

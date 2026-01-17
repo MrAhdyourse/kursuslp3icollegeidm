@@ -8,8 +8,11 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50/50 font-sans text-slate-800 relative">
+    <div className="min-h-screen flex flex-col font-sans text-slate-800 relative bg-transparent">
       
+      {/* === BACKGROUND TEXTURE (GRID) === */}
+      <div className="fixed inset-0 z-[-1] bg-grid-pattern pointer-events-none opacity-60"></div>
+
       {/* === SNAKE BORDER ANIMATION (Premium Slow) === */}
       <div className="fixed inset-0 z-[100] pointer-events-none overflow-hidden">
         {/* Top Line */}

@@ -33,7 +33,7 @@ const Login: React.FC = () => {
     const res = await login(email, password);
     
     if (res.success && res.user) {
-      // STRICT ROLE GUARD: Pastikan role user sesuai dengan mode login yang dipilih
+      // STRICT ROLE GUARD
       const selectedRoleName = mode === 'INSTRUCTOR' ? 'Instruktur' : 'Peserta Kursus';
       const actualRoleName = res.user.role === 'INSTRUCTOR' ? 'Instruktur' : 'Peserta Kursus';
 
@@ -79,7 +79,7 @@ const Login: React.FC = () => {
               alt="Welcome" 
               className="w-full h-full object-cover scale-110 animate-[zoom-slow_20s_infinite_alternate]" 
             />
-            {/* Dark Overlay Gradient - Menyesuaikan Mode */}
+            {/* Dark Overlay Gradient */}
             <div className={`absolute inset-0 transition-colors duration-500 ${
               mode === 'INSTRUCTOR' 
                 ? 'bg-gradient-to-b from-blue-900/80 via-blue-900/40 to-slate-900/90' 
@@ -88,7 +88,7 @@ const Login: React.FC = () => {
           </div>
 
           <div className="relative z-10">
-            {/* LOGO AREA - PREMIUM DISPLAY */}
+            {/* LOGO AREA */}
             <div className="bg-white p-6 rounded-2xl w-fit shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] mb-10 group-hover:scale-105 transition-transform duration-500">
                <img src={logoImg} alt="LP3I Logo" className="h-20 w-auto object-contain drop-shadow-md" />
             </div>
@@ -102,7 +102,6 @@ const Login: React.FC = () => {
           </div>
 
           <div className="relative z-10">
-             {/* SIMPLIFIED DEDICATION */}
              <div className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-xl inline-flex items-center gap-3 shadow-inner">
                 <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
                    <User size={16} className="text-blue-200" />
@@ -115,7 +114,7 @@ const Login: React.FC = () => {
         {/* SIDEBAR KANAN: FORM LOGIN */}
         <div className="flex-1 p-8 md:p-12 bg-white flex flex-col justify-center">
           
-          {/* Header Mobile (Only show on mobile) */}
+          {/* Header Mobile */}
           <div className="md:hidden mb-8 text-center">
              <h1 className="text-2xl font-bold text-slate-800">Selamat Datang</h1>
              <p className="text-slate-500">Silakan masuk ke akun Anda</p>
@@ -151,7 +150,7 @@ const Login: React.FC = () => {
           {/* FORM */}
           <div className="mb-8">
             <h3 className={`text-xl font-bold mb-1 ${mode === 'INSTRUCTOR' ? 'text-blue-700' : 'text-emerald-700'}`}>
-              Login {mode === 'INSTRUCTOR' ? 'Instruktur' : 'Peserta Kursus'}
+              Login {mode === 'INSTRUCTOR' ? 'Instruktur' : 'Peserta'}
             </h3>
             <p className="text-slate-500 text-sm">Masukan kredensial akun Anda untuk melanjutkan.</p>
           </div>
