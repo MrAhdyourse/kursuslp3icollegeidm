@@ -36,6 +36,11 @@ const Settings: React.FC = () => {
   // Sessions State
   const [sessionCount, setSessionCount] = useState<number>(12);
 
+  // Security State
+  const [showSecurityModal, setShowSecurityModal] = useState(false);
+  const [securityAction, setSecurityAction] = useState<'RESET_SYSTEM' | 'WIPE_STUDENTS' | null>(null);
+  const [securityInput, setSecurityInput] = useState('');
+
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || '');
@@ -52,6 +57,60 @@ const Settings: React.FC = () => {
       fetchSessionConfig(selectedCourseId, selectedLevel);
     }
   }, [selectedCourseId, selectedLevel, activeTab]);
+
+  // --- SECURITY LOGIC ---
+  const handleSecurityChallenge = (action: 'RESET_SYSTEM' | 'WIPE_STUDENTS') => {
+    setSecurityAction(action);
+    setSecurityInput('');
+    setShowSecurityModal(true);
+  };
+
+  const executeSecureAction = async () => {
+    if (securityInput !== 'LP3I-AHDI-MASTER') {
+      alert("AKSES DITOLAK: Kode Otorisasi Salah!");
+      return;
+    }
+
+    setShowSecurityModal(false);
+    setLoading(true);
+
+    try {
+      if (securityAction === 'RESET_SYSTEM') {
+         // 1. Hapus Master Data
+         const courseSnap = await getDocs(collection(db, "course_types"));
+         courseSnap.forEach(d => deleteDoc(d.ref));
+         
+         const currSnap = await getDocs(collection(db, "curriculums"));
+         currSnap.forEach(d => deleteDoc(d.ref));
+         
+         const sessSnap = await getDocs(collection(db, "session_configs"));
+         sessSnap.forEach(d => deleteDoc(d.ref));
+
+         // 4. Hapus Jadwal Kelas
+         const scheduleSnap = await getDocs(collection(db, "class_schedules"));
+         scheduleSnap.forEach(d => deleteDoc(d.ref));
+
+         // 2. Un-enroll Siswa
+         const studentsSnap = await getDocs(collection(db, "students"));
+         studentsSnap.forEach(d => setDoc(d.ref, { program: "", level: 1, classId: null }, { merge: true }));
+
+         alert("Sistem Akademik Berhasil Di-reset.");
+         window.location.reload();
+
+      } else if (securityAction === 'WIPE_STUDENTS') {
+         const snap = await getDocs(collection(db, "students"));
+         const promises = snap.docs.map(d => deleteDoc(d.ref));
+         await Promise.all(promises);
+         
+         alert("DATABASE PESERTA TELAH DIKOSONGKAN.");
+         window.location.reload();
+      }
+    } catch (e) {
+      alert("Terjadi Kesalahan: " + e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // --- DATABASE FUNCTIONS ---
 
@@ -275,7 +334,7 @@ const Settings: React.FC = () => {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       
-                      {/* CARD 1: RESET SYSTEM (COURSES & CURRICULUM) */}
+                      {/* CARD 1: RESET SYSTEM */}
                       <div className="relative overflow-hidden p-6 rounded-3xl border border-red-100 bg-red-50/30 group hover:border-red-200 transition-all">
                          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <BookOpen size={80} className="text-red-500 transform rotate-12" />
@@ -286,40 +345,14 @@ const Settings: React.FC = () => {
                             Status program siswa akan di-reset (un-enroll), tapi data siswa TETAP ADA.
                          </p>
                          <button 
-                           onClick={async () => {
-                             if (confirm("KONFIRMASI: Hapus semua Data Kursus & Kurikulum?\n(Data siswa tidak akan dihapus, hanya di-reset programnya)")) {
-                               setLoading(true);
-                               try {
-                                 // 1. Hapus Master Data
-                                 const courseSnap = await getDocs(collection(db, "course_types"));
-                                 courseSnap.forEach(d => deleteDoc(d.ref));
-                                 
-                                 const currSnap = await getDocs(collection(db, "curriculums"));
-                                 currSnap.forEach(d => deleteDoc(d.ref));
-                                 
-                                 const sessSnap = await getDocs(collection(db, "session_configs"));
-                                 sessSnap.forEach(d => deleteDoc(d.ref));
-
-                                 // 4. Hapus Jadwal Kelas (Agar dashboard siswa bersih)
-                                 const scheduleSnap = await getDocs(collection(db, "class_schedules"));
-                                 scheduleSnap.forEach(d => deleteDoc(d.ref));
-
-                                 // 2. Un-enroll Siswa (Update only)
-                                 const studentsSnap = await getDocs(collection(db, "students"));
-                                 studentsSnap.forEach(d => setDoc(d.ref, { program: "", level: 1, classId: null }, { merge: true }));
-
-                                 alert("Sistem Akademik Berhasil Di-reset.");
-                                 window.location.reload();
-                               } catch (e) { alert("Error: " + e); setLoading(false); }
-                             }
-                           }}
+                           onClick={() => handleSecurityChallenge('RESET_SYSTEM')}
                            className="w-full py-3 bg-white border-2 border-red-100 text-red-500 font-bold rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"
                          >
                            Reset Kursus & Kurikulum
                          </button>
                       </div>
 
-                      {/* CARD 2: WIPE STUDENTS (DATA PESERTA) */}
+                      {/* CARD 2: WIPE STUDENTS */}
                       <div className="relative overflow-hidden p-6 rounded-3xl border border-red-100 bg-red-50/30 group hover:border-red-200 transition-all">
                          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <User size={80} className="text-red-500 transform -rotate-12" />
@@ -330,21 +363,7 @@ const Settings: React.FC = () => {
                             <br/><span className="text-red-500 font-bold">PERINGATAN:</span> Daftar siswa akan menjadi kosong melompong. Akun login mereka tidak terhapus.
                          </p>
                          <button 
-                           onClick={async () => {
-                             if (confirm("PERINGATAN FATAL: Apakah Anda yakin ingin MENGHAPUS SEMUA DATA PESERTA?\n\nDaftar siswa akan menjadi kosong. Tindakan ini tidak dapat dibatalkan.")) {
-                               if (confirm("YAKIN SEKALI LAGI? Data biodata, nilai, dan absensi mereka akan hilang selamanya.")) {
-                                 setLoading(true);
-                                 try {
-                                   const snap = await getDocs(collection(db, "students"));
-                                   const promises = snap.docs.map(d => deleteDoc(d.ref));
-                                   await Promise.all(promises);
-                                   
-                                   alert("DATABASE PESERTA TELAH DIKOSONGKAN.");
-                                   window.location.reload();
-                                 } catch (e) { alert("Error: " + e); setLoading(false); }
-                               }
-                             }
-                           }}
+                           onClick={() => handleSecurityChallenge('WIPE_STUDENTS')}
                            className="w-full py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all shadow-red-200"
                          >
                            MUSNAHKAN DATA PESERTA
@@ -504,7 +523,6 @@ const Settings: React.FC = () => {
             {/* 6. ABOUT TAB */}
             {activeTab === 'ABOUT' && (
               <div className="max-w-4xl mx-auto py-10 animate-fade-in">
-                {/* ... (About content remains similar, just removed dark mode classes implicitly by full replacement) ... */}
                 {/* Header Section */}
                 <div className="text-center mb-12">
                   <div className="w-20 h-20 bg-gradient-to-tr from-blue-600 to-blue-400 rounded-3xl mx-auto flex items-center justify-center text-white shadow-2xl mb-6 rotate-12 transition-transform hover:rotate-0 duration-500">
@@ -515,10 +533,10 @@ const Settings: React.FC = () => {
                 </div>
 
                 {/* Developer Message Section */}
-                <div className="relative bg-white rounded-[2.5rem] md:rounded-[3rem] shadow-2xl shadow-blue-100 border border-slate-100 overflow-hidden flex flex-col md:flex-row mb-12">
+                <div className="relative bg-white rounded-[2.5rem] md:rounded-[3rem] shadow-2xl shadow-blue-100 border border-slate-100 overflow-hidden flex flex-col md:flex-row-reverse mb-12">
                    <div className="w-full md:w-2/5 relative h-64 md:h-auto overflow-hidden">
                       <img src={aboutImg} className="w-full h-full object-cover object-top md:object-cover scale-105 hover:scale-110 transition-transform duration-1000" alt="Developer Model" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:via-transparent md:to-white"></div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent md:bg-gradient-to-l md:from-transparent md:via-transparent md:to-white"></div>
                    </div>
 
                    <div className="w-full md:w-3/5 p-8 md:p-12 flex flex-col justify-center relative">
@@ -576,6 +594,60 @@ const Settings: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* SECURITY MODAL OVERLAY */}
+      {showSecurityModal && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in">
+           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform scale-100 transition-transform">
+              <div className="bg-red-600 px-8 py-6 text-white text-center relative overflow-hidden">
+                 <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
+                 <AlertTriangle size={48} className="mx-auto mb-3 text-red-200" />
+                 <h2 className="text-2xl font-black uppercase tracking-tight">Akses Terkunci</h2>
+                 <p className="text-red-100 text-xs font-bold uppercase tracking-widest mt-1">Otorisasi Tingkat Tinggi Diperlukan</p>
+              </div>
+              
+              <div className="p-8">
+                 <p className="text-center text-slate-600 font-medium mb-6 leading-relaxed text-sm">
+                   Fitur ini dilindungi untuk mencegah kehilangan data fatal. Silakan hubungi <b>Super Admin</b> untuk mendapatkan Kode Otorisasi.
+                 </p>
+                 
+                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center mb-6">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Hubungi via WhatsApp</p>
+                    <p className="text-xl font-black text-slate-800">0838-6705-5809</p>
+                 </div>
+
+                 <div className="space-y-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Masukkan Kode Master</label>
+                      <input 
+                        type="password" 
+                        autoFocus
+                        value={securityInput}
+                        onChange={e => setSecurityInput(e.target.value)}
+                        placeholder="••••••••••••••"
+                        className="w-full text-center text-lg font-black tracking-widest p-3 border-2 border-slate-200 rounded-xl focus:border-red-500 focus:ring-4 focus:ring-red-500/10 outline-none transition-all uppercase"
+                      />
+                    </div>
+                    
+                    <button 
+                      onClick={executeSecureAction}
+                      className="w-full py-4 bg-red-600 text-white font-bold rounded-xl shadow-lg shadow-red-200 hover:bg-red-700 hover:shadow-xl transition-all"
+                    >
+                       BUKA KUNCI & EKSEKUSI
+                    </button>
+                    
+                    <button 
+                      onClick={() => setShowSecurityModal(false)}
+                      className="w-full py-3 text-slate-400 font-bold hover:text-slate-600 transition-colors text-sm"
+                    >
+                       Batalkan
+                    </button>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
+
     </div>
   );
 };

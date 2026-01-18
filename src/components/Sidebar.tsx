@@ -10,7 +10,7 @@ export const Sidebar: React.FC = () => {
   const links = [
     { name: 'Dashboard', icon: Home, path: '/' },
     { name: 'Data Peserta', icon: Users, path: '/students', role: 'INSTRUCTOR' },
-    { name: 'Daftar Kelas', icon: Layers, path: '/classmates' },
+    { name: user?.role === 'STUDENT' ? 'Kelas Saya' : 'Daftar Kelas', icon: Layers, path: '/classmates' },
     { name: 'Laporan Nilai', icon: BarChart2, path: '/reports' },
     { name: 'Simulasi Karir', icon: GraduationCap, path: '/career' },
     { name: 'Pengaturan', icon: Settings, path: '/settings' },
