@@ -86,6 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
 
             // MERGE DATA AKADEMIK (Jika dia Siswa)
+            // Ini penting: Data Admin (di tabel students) -> Masuk ke Sesi Login
             if (userData.role === 'STUDENT') {
                 userData = await mergeStudentData(userData);
             }
@@ -104,17 +105,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const studentDoc = querySnapshot.docs[0];
                 const studentData = studentDoc.data() as Student;
                 
+                // FIX: Spread studentData FIRST to avoid "duplicate identifier" errors
+                // and explicitly map types to satisfy UserProfile
                 const userProfile: UserProfile = {
-                    uid: studentDoc.id, // Gunakan ID Dokumen Student sementara
+                    ...studentData, // Base: ambil batch, program, classId, dll
+                    
+                    // Overrides & Essential Auth Fields
+                    uid: studentDoc.id, 
                     email: studentData.email || firebaseUser.email || '',
                     displayName: studentData.name,
                     role: 'STUDENT',
-                    status: 'ACTIVE',
+                    status: studentData.status, // Sekarang valid karena Type UserStatus sudah diupdate
                     createdAt: studentData.createdAt,
-                    photoURL: studentData.avatarUrl,
-                    // Masukkan data akademik langsung
-                    ...studentData 
-                } as any;
+                    photoURL: studentData.avatarUrl
+                };
                 
                 setUser(userProfile);
             } else {
@@ -176,16 +180,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const studentDoc = querySnapshot.docs[0];
             const studentData = studentDoc.data() as Student;
              
+            // FIX: Consistent object construction
             const userProfile: UserProfile = {
+                ...studentData,
                 uid: studentDoc.id,
                 email: studentData.email || email,
                 displayName: studentData.name,
                 role: 'STUDENT',
-                status: 'ACTIVE',
+                status: studentData.status,
                 createdAt: studentData.createdAt,
-                photoURL: studentData.avatarUrl,
-                ...studentData
-            } as any;
+                photoURL: studentData.avatarUrl
+            };
             
             setUser(userProfile);
             return { success: true, user: userProfile };

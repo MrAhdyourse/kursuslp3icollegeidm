@@ -3,18 +3,25 @@
 // ==========================================
 
 export type UserRole = 'INSTRUCTOR' | 'STUDENT';
-export type UserStatus = 'ACTIVE' | 'BLOCKED' | 'EXPIRED';
+export type UserStatus = 'ACTIVE' | 'BLOCKED' | 'EXPIRED' | 'GRADUATED' | 'DROPOUT';
 
 export interface UserProfile {
   uid: string;
   email: string;
   displayName: string;
-  photoURL?: string;
+  photoURL?: string | null; // Allow null
   role: UserRole;
   status: UserStatus;
   licenseExpiry?: number; 
-  authorizedPrograms?: string[]; // Array program yang boleh diakses (e.g., ['ENGLISH', 'OFFICE'] atau ['ALL'])
+  authorizedPrograms?: string[]; 
   createdAt: number;
+  
+  // Extended fields from Student Merge (Optional)
+  nis?: string;
+  batch?: string;
+  program?: string;
+  classId?: string;
+  level?: number;
 }
 
 // ==========================================
@@ -76,7 +83,7 @@ export interface Student {
   batch: string;          // Angkatan (Tahun)
   program: string;        // (Legacy string, tetap disimpan untuk kemudahan display)
   classId?: string;       // Link ke ClassGroup (Opsional karena mungkin belum masuk kelas)
-  avatarUrl?: string;     
+  avatarUrl?: string | null; // Allow null here too
   status: 'ACTIVE' | 'GRADUATED' | 'DROPOUT';
   createdAt: number;
 }
