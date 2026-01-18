@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
 import { scheduleService } from '../services/scheduleService';
+import { LocationCard } from '../components/LocationCard';
 import type { ClassGroup } from '../types';
 
 const Dashboard: React.FC = () => {
@@ -200,13 +201,24 @@ const Dashboard: React.FC = () => {
 
                </div>
 
-            )}
+                      )}
 
-          </div>
+                    </div>
 
-        </div>
-    </div>
-  );
-};
+                  </div>
+
+            
+
+                  {/* 4. CAMPUS LOCATION */}
+
+                  <LocationCard />
+
+            
+
+                </div>
+
+              );
+
+            };
 
 export default Dashboard;

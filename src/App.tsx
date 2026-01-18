@@ -5,6 +5,7 @@ import { Layout } from './components/Layout';
 import { useAuth } from './context/AuthContext';
 import { SplashScreen } from './components/SplashScreen';
 import { PageTransition } from './components/PageTransition';
+import { Toaster } from 'react-hot-toast';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -105,6 +106,7 @@ function AppRoutes() {
           </ProtectedRoute>
         } />
       </Routes>
+      <Toaster position="top-center" reverseOrder={false} toastOptions={{ duration: 4000, style: { background: '#333', color: '#fff' } }} />
     </AnimatePresence>
   );
 }

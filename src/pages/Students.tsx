@@ -1,34 +1,46 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Plus, Edit, Trash2, Search, Filter, BookOpen, AlertTriangle } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Search, Filter, BookOpen, RefreshCw } from 'lucide-react';
 import { studentService } from '../services/studentService';
 import { useAuth } from '../context/AuthContext';
 import type { Student } from '../types';
 import { StudentFormModal } from '../components/StudentFormModal';
 import { GradingModal } from '../components/GradingModal';
 import { MOCK_CLASSES } from '../utils/mockData';
+import toast from 'react-hot-toast';
 
 const Students: React.FC = () => {
   const { user } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Modals State
+  // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGradingOpen, setIsGradingOpen] = useState(false);
-  
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [gradingStudent, setGradingStudent] = useState<Student | null>(null);
+  
+  // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>('ALL');
+
+  const handleRefresh = () => {
+    setLoading(true);
+    studentService.getAllStudents().then(data => {
+      setStudents(data);
+      setLoading(false);
+      toast.success("Data disinkronkan dari server");
+    });
+  };
 
   useEffect(() => {
     // Berlangganan data secara real-time
     const unsubscribe = studentService.subscribeToStudents((data) => {
+      // Filter Sisi Client (Opsional: Jika ingin strict hanya menampilkan data milik sendiri)
+      // Tapi untuk sekarang kita tampilkan semua agar data baru tidak hilang.
       setStudents(data);
       setLoading(false);
     });
 
-    // Bersihkan listener saat halaman ditutup
     return () => unsubscribe();
   }, []);
 
@@ -48,11 +60,26 @@ const Students: React.FC = () => {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (confirm(`Apakah Anda yakin ingin menghapus data ${name}?`)) {
-      const res = await studentService.deleteStudent(id);
-      if (!res.success) {
-        alert(`Gagal menghapus: ${res.error}`);
-      }
+    if (confirm(`Hapus data siswa ${name}?`)) {
+      toast.promise(studentService.deleteStudent(id), {
+        loading: 'Menghapus...',
+        success: 'Data terhapus',
+        error: 'Gagal menghapus'
+      });
+    }
+  };
+
+  const handleModalSuccess = (newStudentId?: string) => {
+    setIsModalOpen(false);
+    // Reset filter agar item baru terlihat
+    setSearchTerm('');
+    setSelectedClassFilter('ALL');
+    
+    if (newStudentId) {
+      toast.success("Siswa baru berhasil ditambahkan!", { duration: 4000 });
+      // Opsional: Scroll ke item atau highlight (bisa dikembangkan nanti)
+    } else {
+      toast.success("Perubahan berhasil disimpan!");
     }
   };
 
@@ -61,52 +88,15 @@ const Students: React.FC = () => {
     return foundClass ? foundClass.name : '-';
   };
 
-  // --- LOGIKA FILTERING UTAMA (SECURITY & SEARCH) ---
+  // --- LOGIKA FILTERING (SEARCH & KELAS) ---
   const filteredStudents = students.filter(s => {
-    // 1. Filter Search (Nama/NIS)
-    const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.nis.includes(searchTerm);
+    const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          s.nis.includes(searchTerm) ||
+                          (s.program || '').toLowerCase().includes(searchTerm.toLowerCase());
     
-    // 2. Filter Dropdown Kelas
     const matchesClass = selectedClassFilter === 'ALL' || s.classId === selectedClassFilter;
     
-    // 3. ROW-LEVEL SECURITY: Filter Berdasarkan Izin Instruktur
-    // Jika user adalah instruktur biasa (bukan superadmin/ALL), filter programnya
-    let isAuthorized = false; // Default: DITOLAK (Strict Mode)
-
-    if (user?.role === 'INSTRUCTOR') {
-       const allowedPrograms = user.authorizedPrograms || [];
-       
-       // SKENARIO 1: Belum ada izin sama sekali -> TOLAK
-       if (allowedPrograms.length === 0) {
-          isAuthorized = false; 
-       } 
-       // SKENARIO 2: Punya akses 'ALL' (Super Admin) -> TERIMA SEMUA
-       else if (allowedPrograms.includes('ALL')) {
-          isAuthorized = true;
-       } 
-       // SKENARIO 3: Punya izin spesifik -> CEK PENCOCOKAN
-       else {
-         // DEBUG: Membantu diagnosa kenapa data tidak muncul
-         console.log(`[AUTH CHECK] Student: "${s.name}" | Program: "${s.program}" | Allowed: ${JSON.stringify(allowedPrograms)}`);
-         
-         isAuthorized = allowedPrograms.some(prog => 
-           s.program && s.program.trim().toUpperCase().includes(prog.trim().toUpperCase())
-         );
-
-         if (isAuthorized) {
-           console.log(`✅ MATCH FOUND for ${s.name}`);
-         } else {
-           console.log(`❌ NO MATCH for ${s.name}`);
-         }
-       }
-    } else {
-       // Jika bukan instruktur (misal: Student), logika filter ini mungkin tidak relevan di halaman ini
-       // Tapi untuk keamanan, kita set false kecuali ada logika lain nanti.
-       // (Saat ini halaman Students.tsx hanya untuk Instruktur, jadi aman)
-       isAuthorized = false; 
-    }
-
-    return matchesSearch && matchesClass && isAuthorized;
+    return matchesSearch && matchesClass;
   });
 
   return (
@@ -115,7 +105,9 @@ const Students: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
           <h1 className="text-4xl font-black text-slate-800 tracking-tight">Data Peserta</h1>
-          <p className="text-slate-500 font-medium mt-2">Kelola {students.length} peserta kursus aktif.</p>
+          <p className="text-slate-500 font-medium mt-2">
+            Kelola {students.length} peserta terdaftar.
+          </p>
         </div>
         {/* ... (Search & Filter Section) ... */}
         <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
@@ -140,30 +132,19 @@ const Students: React.FC = () => {
               onChange={e => setSearchTerm(e.target.value)}
             />
           </div>
+          <button onClick={handleRefresh} className="p-3 bg-white border border-slate-200 text-slate-500 rounded-xl hover:text-blue-600 hover:border-blue-200 transition-colors" title="Refresh Manual">
+            <RefreshCw size={20} />
+          </button>
           <button onClick={handleAdd} className="btn-primary px-6 py-3 flex items-center gap-2 text-sm">
             <Plus size={18} /> Tambah
           </button>
         </div>
       </div>
 
-      {/* TABLE */}
+      {/* TABLE (PLATINUM GLASS DESIGN) */}
       <div className="glass-table-container">
         {loading ? (
           <div className="flex items-center justify-center h-80"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div></div>
-        ) : (user?.role === 'INSTRUCTOR' && (!user.authorizedPrograms || user.authorizedPrograms.length === 0)) ? (
-           // EMPTY STATE KHUSUS: BELUM AKTIVASI
-           <div className="flex flex-col items-center justify-center h-96 text-center p-8">
-              <div className="w-24 h-24 bg-yellow-50 rounded-full flex items-center justify-center mb-6 animate-pulse border border-yellow-100">
-                 <AlertTriangle size={48} className="text-yellow-500" />
-              </div>
-              <h3 className="text-2xl font-black text-slate-800 mb-2">Akses Belum Dikonfigurasi</h3>
-              <p className="text-slate-500 max-w-md mx-auto leading-relaxed mb-8">
-                 Halo <b>{user.displayName}</b>, akun Anda saat ini belum diberikan izin untuk mengakses program studi manapun.
-              </p>
-              <div className="glass-panel p-6 max-w-lg mx-auto">
-                 Silakan hubungi <b>Admin Master (Ahdi Aghni)</b> untuk melakukan aktivasi akses program pada akun Anda.
-              </div>
-           </div>
         ) : filteredStudents.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-80 text-slate-400"><Users size={64} className="mb-4 opacity-20" /><p className="font-medium">Belum ada data siswa yang cocok.</p></div>
         ) : (
@@ -219,13 +200,14 @@ const Students: React.FC = () => {
       <StudentFormModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
-        onSuccess={() => setIsModalOpen(false)}
+        onSuccess={handleModalSuccess} 
         studentToEdit={editingStudent}
+        currentUser={user}
       />
       <GradingModal 
-        isOpen={isGradingOpen}
-        onClose={() => setIsGradingOpen(false)}
-        student={gradingStudent}
+        isOpen={isGradingOpen} 
+        onClose={() => setIsGradingOpen(false)} 
+        student={gradingStudent} 
       />
     </div>
   );

@@ -22,13 +22,23 @@ export const studentService = {
   
   // Real-time Listener untuk Daftar Siswa (Full - Untuk Admin)
   subscribeToStudents: (callback: (data: Student[]) => void) => {
-    const q = query(collection(db, STUDENTS_COLLECTION), orderBy("createdAt", "desc"));
+    // 1. QUERY POLOS (Dijamin Jalan Tanpa Index)
+    const q = query(collection(db, STUDENTS_COLLECTION));
+    
     return onSnapshot(q, (snapshot) => {
       const students = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       } as Student));
+      
+      // 2. SORTING DI MEMORI (Client Side)
+      // Sort berdasarkan waktu buat (Terbaru di atas), handle jika createdAt null
+      students.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      
+      console.log(`[StudentService] Fetched ${students.length} students raw.`);
       callback(students);
+    }, (error) => {
+      console.error("[StudentService] Error:", error);
     });
   },
 
@@ -55,13 +65,23 @@ export const studentService = {
 
   // --- STUDENT CRUD ---
 
-  async addStudent(student: Omit<Student, "id">) {
+  async addStudent(student: Omit<Student, "id">, customId?: string) {
     try {
-      const docRef = await addDoc(collection(db, STUDENTS_COLLECTION), {
-        ...student,
-        createdAt: Date.now()
-      });
-      return { success: true, id: docRef.id };
+      if (customId) {
+        // JIKA ADA UID: Pakai UID tersebut sebagai ID Dokumen (Link ke Akun Auth)
+        await setDoc(doc(db, STUDENTS_COLLECTION, customId), {
+          ...student,
+          createdAt: Date.now()
+        });
+        return { success: true, id: customId };
+      } else {
+        // JIKA TIDAK ADA: Buat ID Acak (Siswa tanpa akun login dulu)
+        const docRef = await addDoc(collection(db, STUDENTS_COLLECTION), {
+          ...student,
+          createdAt: Date.now()
+        });
+        return { success: true, id: docRef.id };
+      }
     } catch (error) {
       console.error("Error adding student: ", error);
       return { success: false, error };

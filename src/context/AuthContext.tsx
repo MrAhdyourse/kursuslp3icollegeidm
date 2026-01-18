@@ -4,9 +4,9 @@ import {
   signInWithEmailAndPassword, 
   signOut 
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
-import type { UserProfile } from '../types';
+import type { UserProfile, Student } from '../types';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -23,6 +23,37 @@ export const useAuth = () => {
   return context;
 };
 
+// Helper untuk menggabungkan data User (Auth) + Student (Akademik)
+const mergeStudentData = async (baseProfile: UserProfile): Promise<UserProfile> => {
+    if (baseProfile.role !== 'STUDENT') return baseProfile;
+
+    try {
+        const q = query(
+            collection(db, "students"), 
+            where("email", "==", baseProfile.email)
+        );
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+            const academicData = querySnapshot.docs[0].data() as Student;
+            console.log("Found academic record, merging...", academicData);
+            
+            // Gabungkan data: Akademik (Student) menimpa data dasar (User) jika ada konflik
+            // Kecuali UID dan Role yang tetap ikut User Auth
+            return {
+                ...baseProfile,
+                ...academicData, // Ambil program, classId, nis, batch, level, dll
+                uid: baseProfile.uid, // Pertahankan UID asli Auth
+                role: 'STUDENT',      // Pertahankan Role
+                displayName: academicData.name || baseProfile.displayName // Prefer nama dari data akademik
+            };
+        }
+    } catch (e) {
+        console.warn("Failed to merge academic data:", e);
+    }
+    return baseProfile;
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,25 +62,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          const docRef = doc(db, 'users', firebaseUser.uid);
-          const docSnap = await getDoc(docRef);
+          // 1. CEK DI KOLEKSI 'USERS' (Akun Utama)
+          const userRef = doc(db, 'users', firebaseUser.uid);
+          const userSnap = await getDoc(userRef);
 
-          if (docSnap.exists()) {
-            // Gabungkan UID dari Auth dengan data dari Firestore agar field 'uid' tidak kosong
-            const userData = { uid: firebaseUser.uid, ...docSnap.data() } as UserProfile;
+          if (userSnap.exists()) {
+            let userData = { uid: firebaseUser.uid, ...userSnap.data() } as UserProfile;
             
+            // CEK STATUS BLOKIR
             if (userData.status === 'BLOCKED') {
               await signOut(auth);
               setUser(null);
-            } else if (userData.status === 'EXPIRED' && userData.licenseExpiry && Date.now() > userData.licenseExpiry) {
+              setLoading(false);
+              return;
+            } 
+            
+            // CEK EXPIRED
+            if (userData.status === 'EXPIRED' && userData.licenseExpiry && Date.now() > userData.licenseExpiry) {
                await signOut(auth);
                setUser(null);
-            } else {
-               setUser(userData);
+               setLoading(false);
+               return;
             }
+
+            // MERGE DATA AKADEMIK (Jika dia Siswa)
+            if (userData.role === 'STUDENT') {
+                userData = await mergeStudentData(userData);
+            }
+
+            setUser(userData);
+
           } else {
-            console.warn("User profile not found in Firestore.");
-            setUser(null);
+            // 2. JIKA TIDAK DI 'USERS', CARI DI 'STUDENTS' (Fallback - Unregistered User)
+            const q = query(
+                collection(db, "students"), 
+                where("email", "==", firebaseUser.email)
+            );
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                const studentDoc = querySnapshot.docs[0];
+                const studentData = studentDoc.data() as Student;
+                
+                const userProfile: UserProfile = {
+                    uid: studentDoc.id, // Gunakan ID Dokumen Student sementara
+                    email: studentData.email || firebaseUser.email || '',
+                    displayName: studentData.name,
+                    role: 'STUDENT',
+                    status: 'ACTIVE',
+                    createdAt: studentData.createdAt,
+                    photoURL: studentData.avatarUrl,
+                    // Masukkan data akademik langsung
+                    ...studentData 
+                } as any;
+                
+                setUser(userProfile);
+            } else {
+                console.warn("User/Student profile not found in Firestore.");
+                setUser(null);
+            }
           }
         } else {
           setUser(null);
@@ -69,15 +140,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const result = await signInWithEmailAndPassword(auth, email, pass);
       
-      // Cek status user di Firestore setelah login berhasil
-      const docRef = doc(db, 'users', result.user.uid);
-      const docSnap = await getDoc(docRef);
+      // LOGIKA LOGIN MANUAL (Mirroring logic useEffect)
+      const userRef = doc(db, 'users', result.user.uid);
+      const userSnap = await getDoc(userRef);
       
-      if (docSnap.exists()) {
-        const userData = { uid: result.user.uid, ...docSnap.data() } as UserProfile;
+      if (userSnap.exists()) {
+        let userData = { uid: result.user.uid, ...userSnap.data() } as UserProfile;
         
         if (userData.status === 'BLOCKED') {
-          await signOut(auth); // Tendang keluar lagi
+          await signOut(auth); 
           return { success: false, error: "Akun Anda diblokir. Hubungi Admin." };
         }
         
@@ -86,12 +157,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
            return { success: false, error: "Lisensi akun Anda telah berakhir." };
         }
 
+        // MERGE DATA AKADEMIK
+        if (userData.role === 'STUDENT') {
+            userData = await mergeStudentData(userData);
+        }
+
         setUser(userData);
         return { success: true, user: userData };
       } else {
-        // DATA TIDAK DITEMUKAN DI FIRESTORE
+        // FALLBACK LOGIN: Cek Students via Email
+        const q = query(
+            collection(db, "students"), 
+            where("email", "==", email)
+        );
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+            const studentDoc = querySnapshot.docs[0];
+            const studentData = studentDoc.data() as Student;
+             
+            const userProfile: UserProfile = {
+                uid: studentDoc.id,
+                email: studentData.email || email,
+                displayName: studentData.name,
+                role: 'STUDENT',
+                status: 'ACTIVE',
+                createdAt: studentData.createdAt,
+                photoURL: studentData.avatarUrl,
+                ...studentData
+            } as any;
+            
+            setUser(userProfile);
+            return { success: true, user: userProfile };
+        }
+
         await signOut(auth);
-        return { success: false, error: "Data profil pengguna tidak ditemukan di database." };
+        return { success: false, error: "Data profil pengguna/siswa tidak ditemukan." };
       }
 
     } catch (error: any) {
