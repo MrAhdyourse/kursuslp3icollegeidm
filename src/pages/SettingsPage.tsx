@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
 import { doc, setDoc, collection, getDocs, deleteDoc, addDoc, getDoc } from 'firebase/firestore'; 
 import { db, auth } from '../services/firebase';
+import { examService } from '../services/examService'; // Import Exam Service
 import ScheduleManager from '../components/ScheduleManager';
 import aboutImg from '../assets/images/tentangkami.png';
 
@@ -107,6 +108,49 @@ const Settings: React.FC = () => {
       }
     } catch (e) {
       alert("Terjadi Kesalahan: " + e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- SEED DATA (DEV TOOLS) ---
+  const handleSeedExam = async () => {
+    if (!confirm("Buat Data Dummy Ujian untuk Testing?")) return;
+    setLoading(true);
+    try {
+      await examService.createExam({
+        programId: "Microsoft Office", // Sesuaikan dengan nama program di database
+        title: "Ujian Akhir Kompetensi Office",
+        durationMinutes: 180,
+        passingGrade: 75,
+        isActive: true,
+        questions: [
+          {
+            id: "q1",
+            text: "Fungsi shortcut CTRL + Z pada Microsoft Word digunakan untuk...",
+            options: ["Menyimpan dokumen", "Membatalkan perintah terakhir", "Memotong teks", "Menebalkan huruf", "Mencetak dokumen"],
+            correctIndex: 1,
+            points: 5
+          },
+          {
+            id: "q2",
+            text: "Manakah rumus Excel yang benar untuk menjumlahkan data dari sel A1 hingga A10?",
+            options: ["=COUNT(A1:A10)", "=MAX(A1:A10)", "=SUM(A1:A10)", "=AVERAGE(A1:A10)", "=TOTAL(A1:A10)"],
+            correctIndex: 2,
+            points: 5
+          },
+          {
+            id: "q3",
+            text: "Fitur 'Mail Merge' sangat berguna untuk pembuatan...",
+            options: ["Grafik Statistik", "Presentasi Animasi", "Surat massal dengan penerima berbeda", "Laporan Keuangan", "Database Relasional"],
+            correctIndex: 2,
+            points: 5
+          }
+        ]
+      });
+      alert("Data Ujian Dummy Berhasil Dibuat!");
+    } catch (e) {
+      alert("Gagal seed: " + e);
     } finally {
       setLoading(false);
     }
@@ -371,6 +415,14 @@ const Settings: React.FC = () => {
                       </div>
 
                     </div>
+
+                    {/* DEV TOOLS */}
+                    <div className="mt-8 text-center opacity-50 hover:opacity-100 transition-opacity">
+                        <button onClick={handleSeedExam} className="text-[10px] font-mono text-blue-600 border border-blue-200 px-3 py-1 rounded hover:bg-blue-50">
+                            [DEV ONLY] Generate Dummy Exam Data (Microsoft Office)
+                        </button>
+                    </div>
+
                   </div>
                 )}
               </div>

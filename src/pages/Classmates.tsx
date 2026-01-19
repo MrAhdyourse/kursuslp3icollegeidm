@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Users, Search, Folder, ArrowLeft, ChevronRight, Lock, 
-  BookOpen, FileText, Award, PlayCircle, Clock, CheckCircle2, Plus 
+  BookOpen, FileText, Award, PlayCircle, Clock, CheckCircle2, Plus, Trash2 
 } from 'lucide-react';
 import { studentService } from '../services/studentService';
 import { scheduleService } from '../services/scheduleService';
+import { moduleService, type ModuleData } from '../services/moduleService';
+import { examService } from '../services/examService';
 import { useAuth } from '../context/AuthContext';
+import { ModuleUploadModal } from '../components/ModuleUploadModal';
+import { ExamResultsModal } from '../components/ExamResultsModal';
 import type { ClassGroup } from '../types';
 
 type ClassTab = 'STUDENTS' | 'MODULES' | 'QUIZZES' | 'FINAL';
@@ -14,12 +19,38 @@ const Classmates: React.FC = () => {
   const { user } = useAuth();
   const [students, setStudents] = useState<any[]>([]);
   const [classes, setClasses] = useState<ClassGroup[]>([]);
+  const [modules, setModules] = useState<ModuleData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   
+  // Exam State
+  const [showExamResults, setShowExamResults] = useState(false);
+  const [activeExamId, setActiveExamId] = useState<string>('');
+
   // Tab Navigasi (Default: Siswa)
   const [activeTab, setActiveTab] = useState<ClassTab>('STUDENTS');
+
+  // ... (Load Modules & Students Logic remains same) ...
+
+  const loadModules = async (programId: string) => {
+    if (!programId) return;
+    const data = await moduleService.getModulesByProgram(programId);
+    setModules(data);
+  };
+
+  // FETCH EXAM ID (New)
+  useEffect(() => {
+    const fetchExam = async () => {
+      const cls = classes.find(c => c.id === selectedClassId);
+      if (cls && activeTab === 'FINAL') {
+        const exam = await examService.getExamByProgram(cls.programId); // Assuming programId matches exam program
+        if (exam) setActiveExamId(exam.id);
+      }
+    };
+    fetchExam();
+  }, [selectedClassId, activeTab, classes]);
 
   useEffect(() => {
     const unsubStudents = studentService.subscribeToPublicStudents((data) => {
@@ -55,6 +86,22 @@ const Classmates: React.FC = () => {
     };
   }, [user]);
 
+  // Load Modules when Class Selected
+  const selectedClass = classes.find(c => c.id === selectedClassId);
+  
+  useEffect(() => {
+    if (selectedClass?.programId && activeTab === 'MODULES') {
+      loadModules(selectedClass.programId);
+    }
+  }, [selectedClass, activeTab]);
+
+  const handleDeleteModule = async (id: string) => {
+    if (confirm("Hapus modul ini?")) {
+      await moduleService.deleteModule(id);
+      if (selectedClass?.programId) loadModules(selectedClass.programId);
+    }
+  };
+
   const filteredStudents = students.filter(s => 
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     s.program.toLowerCase().includes(searchTerm.toLowerCase())
@@ -65,7 +112,6 @@ const Classmates: React.FC = () => {
     return filteredStudents.filter(s => s.classId === classId);
   };
 
-  const selectedClass = classes.find(c => c.id === selectedClassId);
   const isStudent = user?.role === 'STUDENT';
   const isInstructor = user?.role === 'INSTRUCTOR';
 
@@ -139,44 +185,72 @@ const Classmates: React.FC = () => {
                  <p className="text-sm text-slate-500">Materi praktik dan teori sesuai kurikulum.</p>
                </div>
                {isInstructor && (
-                <button className="btn-primary px-4 py-2 flex items-center gap-2 text-xs">
+                <button 
+                  onClick={() => setIsUploadModalOpen(true)}
+                  className="btn-primary px-4 py-2 flex items-center gap-2 text-xs"
+                >
                   <Plus size={16} /> Upload Materi
                 </button>
                )}
             </div>
             
-            {/* Timeline Modul Mockup */}
-            {[1, 2, 3].map((mod) => (
-              <div key={mod} className="glass-panel p-6 flex items-start gap-5 group hover:border-blue-300 transition-colors">
-                <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl flex items-center justify-center font-black text-xl shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform shrink-0">
-                  {mod}
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <h3 className="text-lg font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
-                      Pengenalan Fundamental {selectedClass?.programId || 'Komputer'} - Bagian {mod}
-                    </h3>
-                    {isStudent && (
-                      <span className="flex items-center gap-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold px-2 py-1 rounded-lg border border-emerald-100">
-                        <CheckCircle2 size={12} /> SELESAI
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-slate-500 text-sm mt-2 leading-relaxed">
-                    Mempelajari dasar-dasar penggunaan tools, shortcut key, manajemen file yang efisien, serta pengenalan antarmuka software standar industri untuk produktivitas kerja maksimal.
-                  </p>
+            {/* Real Module List */}
+            {modules.length > 0 ? (
+              modules.map((mod, index) => (
+                <div key={mod.id} className="glass-panel p-6 flex items-start gap-5 group hover:border-blue-300 transition-colors relative">
                   
-                  <div className="mt-5 flex gap-3">
-                    <button className="px-5 py-2.5 bg-slate-800 text-white rounded-xl text-xs font-bold shadow-md hover:bg-slate-700 transition flex items-center gap-2">
-                      <PlayCircle size={16} /> {isInstructor ? 'Preview Materi' : 'Mulai Belajar'}
+                  {isInstructor && (
+                    <button 
+                      onClick={() => handleDeleteModule(mod.id!)}
+                      className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 transition-colors"
+                      title="Hapus Modul"
+                    >
+                      <Trash2 size={16} />
                     </button>
-                    <button className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition flex items-center gap-2">
-                      <FileText size={16} /> Baca PDF
-                    </button>
+                  )}
+
+                  <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl flex items-center justify-center font-black text-xl shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform shrink-0">
+                    {index + 1}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start pr-8">
+                      <h3 className="text-lg font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
+                        {mod.title}
+                      </h3>
+                    </div>
+                    <p className="text-slate-500 text-sm mt-2 leading-relaxed">
+                      {mod.description}
+                    </p>
+                    
+                    <div className="mt-5 flex gap-3">
+                      <a 
+                        href={mod.fileUrl} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="px-5 py-2.5 bg-slate-800 text-white rounded-xl text-xs font-bold shadow-md hover:bg-slate-700 transition flex items-center gap-2"
+                      >
+                        <PlayCircle size={16} /> Preview Materi
+                      </a>
+                      <a 
+                        href={mod.fileUrl}
+                        download
+                        target="_blank"
+                        rel="noreferrer" 
+                        className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition flex items-center gap-2"
+                      >
+                        <FileText size={16} /> Baca PDF
+                      </a>
+                    </div>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div className="text-center py-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                <Folder size={48} className="mx-auto text-slate-300 mb-3" />
+                <p className="text-slate-500 font-medium">Belum ada modul materi yang diupload.</p>
+                {isInstructor && <p className="text-xs text-blue-500 mt-1 cursor-pointer hover:underline" onClick={() => setIsUploadModalOpen(true)}>Upload sekarang</p>}
               </div>
-            ))}
+            )}
           </div>
         );
 
@@ -260,18 +334,29 @@ const Classmates: React.FC = () => {
 
                  {isInstructor ? (
                    <div className="flex justify-center gap-4">
-                      <button className="btn-primary px-8 py-4 text-sm shadow-orange-500/20 bg-gradient-to-r from-orange-500 to-red-500 border-none">
+                      <button 
+                        onClick={() => alert("Fitur Editor Soal akan segera hadir. Gunakan menu 'Generate Dummy' di Settings untuk saat ini.")}
+                        className="btn-primary px-8 py-4 text-sm shadow-orange-500/20 bg-gradient-to-r from-orange-500 to-red-500 border-none"
+                      >
                         Konfigurasi Soal Final
                       </button>
-                      <button className="px-8 py-4 bg-white text-slate-600 font-bold rounded-xl border border-slate-200 hover:bg-slate-50">
+                      <button 
+                        onClick={() => setShowExamResults(true)}
+                        className="px-8 py-4 bg-white text-slate-600 font-bold rounded-xl border border-slate-200 hover:bg-slate-50"
+                      >
                         Lihat Rekap Nilai
                       </button>
                    </div>
                  ) : (
-                   <button className="px-12 py-4 bg-slate-200 text-slate-400 rounded-2xl font-bold cursor-not-allowed flex items-center justify-center gap-2 mx-auto">
-                      <Lock size={18} />
-                      AKSES BELUM DIBUKA
-                   </button>
+                   <div className="text-center">
+                     <Link to="/exam" className="inline-flex items-center justify-center gap-3 px-12 py-4 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-2xl font-bold shadow-xl shadow-orange-500/30 hover:scale-105 transition-transform animate-pulse">
+                        <PlayCircle size={24} />
+                        MULAI UJIAN SEKARANG
+                     </Link>
+                     <p className="mt-4 text-xs text-slate-500 font-medium">
+                       ⚠️ <b>Peringatan:</b> Waktu 180 menit berjalan mundur tanpa henti.<br/>Pastikan koneksi stabil sebelum memulai.
+                     </p>
+                   </div>
                  )}
                </div>
             </div>
@@ -351,7 +436,7 @@ const Classmates: React.FC = () => {
                     <span className="hidden md:inline">
                       {tab === 'STUDENTS' ? 'Peserta' : 
                        tab === 'MODULES' ? 'Modul' : 
-                       tab === 'QUIZZES' ? 'Ujian' : 'Final Exam'}
+                       tab === 'QUIZZES' ? 'Ujian' : 'UJIKOM'}
                     </span>
                   </button>
                 ))}
@@ -406,7 +491,7 @@ const Classmates: React.FC = () => {
 
                   <div className="relative z-10 pt-6 border-t border-slate-100 flex justify-between items-center">
                     <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
-                      <Users size={14} /> {count} Mahasiswa
+                      <Users size={14} /> {count} Peserta
                     </span>
                     <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
                        <ChevronRight size={18} />
@@ -418,6 +503,23 @@ const Classmates: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* MODULE UPLOAD MODAL */}
+      <ModuleUploadModal 
+        isOpen={isUploadModalOpen} 
+        onClose={() => setIsUploadModalOpen(false)} 
+        onSuccess={() => loadModules(selectedClass?.programId || '')}
+        programId={selectedClass?.programId || ''}
+        uploaderId={user?.uid || 'SYSTEM'}
+      />
+
+      {/* EXAM RESULTS MODAL */}
+      <ExamResultsModal 
+        isOpen={showExamResults} 
+        onClose={() => setShowExamResults(false)}
+        examId={activeExamId}
+        classId={selectedClassId || ''}
+      />
     </div>
   );
 };

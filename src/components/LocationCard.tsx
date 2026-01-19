@@ -2,9 +2,8 @@ import React from 'react';
 import { MapPin, Navigation } from 'lucide-react';
 
 export const LocationCard: React.FC = () => {
-  // Lokasi: LP3I College Indramayu
-  // Jl. Pahlawan No.9, Lemahmekar
-  const mapUrl = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3965.544773537687!2d108.3207730749912!3d-6.323350993666112!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e6eb9580d76077d%3A0x6d6230872656360!2sLP3I%20College%20Indramayu!5e0!3m2!1sid!2sid!4v1705634000000!5m2!1sid!2sid";
+  // Lokasi: LP3I COLLEGE INDRAMAYU (Updated Coordinate)
+  const mapUrl = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3965.428807375795!2d108.3394395!3d-6.338465299999999!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e6eb951c4d31181%3A0x311702c332079b2c!2sLP3I%20COLLEGE%20INDRAMAYU!5e0!3m2!1sid!2sid!4v1768706447337!5m2!1sid!2sid";
 
   return (
     <div className="glass-panel p-6 relative overflow-hidden group">
@@ -17,12 +16,12 @@ export const LocationCard: React.FC = () => {
             Lokasi Kampus
           </h2>
           <p className="text-slate-500 text-sm mt-1 font-medium">
-            Pusat Kegiatan Belajar & Praktikum
+            LP3I COLLEGE INDRAMAYU
           </p>
         </div>
         
         <a 
-          href="https://maps.app.goo.gl/YourShortLinkHere" // Ganti dengan link real jika ada, atau biarkan user klik map
+          href="https://www.google.com/maps/search/?api=1&query=LP3I+COLLEGE+INDRAMAYU" 
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-2 px-4 py-2 bg-white/80 border border-white hover:bg-white text-blue-600 rounded-xl font-bold text-xs shadow-sm transition-all hover:scale-105"

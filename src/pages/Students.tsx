@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Plus, Edit, Trash2, Search, Filter, BookOpen, RefreshCw } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Search, Filter, BookOpen, RefreshCw, ShieldAlert } from 'lucide-react';
 import { studentService } from '../services/studentService';
 import { useAuth } from '../context/AuthContext';
 import type { Student } from '../types';
@@ -18,6 +18,7 @@ const Students: React.FC = () => {
   const [isGradingOpen, setIsGradingOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [gradingStudent, setGradingStudent] = useState<Student | null>(null);
+  const [showSafetyWarning, setShowSafetyWarning] = useState(true); // Default TRUE agar muncul tiap akses
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -100,8 +101,57 @@ const Students: React.FC = () => {
   });
 
   return (
-    <div className="animate-fade-in space-y-8">
-      {/* ... (Header Section) ... */}
+    <div className="animate-fade-in space-y-6 relative">
+      
+      {/* --- SAFETY WARNING MODAL (WORLD CLASS UX) --- */}
+      {showSafetyWarning && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden scale-100 animate-in zoom-in-95 duration-300 border border-amber-100">
+            
+            {/* Header Warning */}
+            <div className="bg-amber-50 p-6 flex flex-col items-center text-center border-b border-amber-100">
+              <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-4 shadow-inner ring-4 ring-white">
+                <ShieldAlert size={32} />
+              </div>
+              <h2 className="text-2xl font-black text-slate-800">PERHATIAN: AKSES ADMIN</h2>
+              <p className="text-amber-700 font-bold text-sm mt-1">Mode Pengelolaan Data Lintas Program</p>
+            </div>
+
+            {/* Content Body */}
+            <div className="p-8 space-y-4 text-slate-600 leading-relaxed">
+              <p>
+                Yth. Instruktur/Admin, halaman ini memberikan Anda akses penuh untuk <strong className="text-slate-800">Menambah, Mengubah, dan Menghapus</strong> data peserta dari <u>seluruh program kursus</u>.
+              </p>
+              
+              <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+                <h4 className="font-bold text-red-700 text-xs uppercase mb-1 flex items-center gap-2">
+                  <ShieldAlert size={14}/> Risiko Kesalahan
+                </h4>
+                <p className="text-xs text-red-600">
+                  Pastikan Anda <strong>hanya mengedit data kelas yang Anda ampu</strong>. Penghapusan data program lain secara tidak sengaja dapat menyebabkan hilangnya riwayat nilai secara permanen.
+                </p>
+              </div>
+
+              <p className="text-xs text-slate-400 italic text-center mt-4">
+                "Dengan menekan tombol di bawah, saya bertanggung jawab penuh atas perubahan data yang saya lakukan."
+              </p>
+            </div>
+
+            {/* Footer Action */}
+            <div className="p-6 bg-slate-50 border-t border-slate-100">
+              <button 
+                onClick={() => setShowSafetyWarning(false)}
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                SAYA MENGERTI & AKAN BERHATI-HATI
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
           <h1 className="text-4xl font-black text-slate-800 tracking-tight">Data Peserta</h1>

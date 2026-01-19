@@ -31,7 +31,28 @@ export const MOCK_CLASSES: ClassGroup[] = [
   }
 ];
 
-// --- MOCK DATA SISWA (6 Data) ---
+// --- MOCK DATA UJIAN (SCENARIO 5 PG + 2 ESSAY) ---
+export const MOCK_EXAM_SCENARIO = {
+  id: "EXAM-TEST-001",
+  programId: "Microsoft Office",
+  title: "UJIKOM KOMPUTER (Skenario Testing)",
+  durationMinutes: 90,
+  passingGrade: 70,
+  isActive: true,
+  questions: [
+    // 5 Soal Pilihan Ganda
+    { id: "Q1", type: "MULTIPLE_CHOICE", text: "Apa pintasan keyboard untuk 'Copy'?", options: ["Ctrl+C", "Ctrl+V", "Ctrl+X", "Ctrl+P", "Alt+F4"], correctIndex: 0, points: 10 },
+    { id: "Q2", type: "MULTIPLE_CHOICE", text: "Fungsi Excel untuk menjumlahkan data adalah...", options: ["AVERAGE", "COUNT", "SUM", "MAX", "IF"], correctIndex: 2, points: 10 },
+    { id: "Q3", type: "MULTIPLE_CHOICE", text: "Aplikasi pengolah kata dari Microsoft adalah...", options: ["Excel", "Word", "PowerPoint", "Access", "Outlook"], correctIndex: 1, points: 10 },
+    { id: "Q4", type: "MULTIPLE_CHOICE", text: "Untuk membuat presentasi, kita menggunakan...", options: ["Ms. Word", "Ms. Excel", "Ms. PowerPoint", "Ms. Paint", "Notepad"], correctIndex: 2, points: 10 },
+    { id: "Q5", type: "MULTIPLE_CHOICE", text: "Ekstensi file standar untuk Word 2019 adalah...", options: [".txt", ".pdf", ".docx", ".xlsx", ".pptx"], correctIndex: 2, points: 10 },
+    
+    // 2 Soal Essay
+    { id: "Q6", type: "ESSAY", text: "Jelaskan langkah-langkah membuat Mail Merge di Microsoft Word!", options: [], correctIndex: 0, points: 25 },
+    { id: "Q7", type: "ESSAY", text: "Buatlah rumus IF bertingkat untuk menentukan grade nilai (A, B, C)!", options: [], correctIndex: 0, points: 25 },
+  ]
+};
+
 export const MOCK_STUDENTS: Student[] = [
   {
     id: "ST-001",
