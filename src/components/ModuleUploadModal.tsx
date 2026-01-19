@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Upload, FileText, Save, Loader2 } from 'lucide-react';
+import { X, Link, Save, Loader2 } from 'lucide-react';
 import { moduleService } from '../services/moduleService';
+import toast from 'react-hot-toast';
 
 interface ModuleUploadModalProps {
   isOpen: boolean;
@@ -15,38 +16,53 @@ export const ModuleUploadModal: React.FC<ModuleUploadModalProps> = ({
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+  const [linkUrl, setLinkUrl] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file || !title) return;
+    
+    // 1. Validasi Input
+    if (!linkUrl || !title) {
+      toast.error("Judul dan Link Materi wajib diisi!");
+      return;
+    }
+    
+    // 2. Validasi Program ID
+    if (!programId) {
+      toast.error("Sistem Error: Program ID tidak ditemukan.");
+      return;
+    }
 
     setLoading(true);
-    try {
-      // 1. Upload PDF
-      const url = await moduleService.uploadPDF(file);
+    const toastId = toast.loading("Menyimpan materi...");
 
-      // 2. Simpan Data
+    try {
+      // 3. Simpan Data ke Database (Langsung simpan Link, tanpa upload file fisik)
       await moduleService.addModule({
         title,
         description,
         programId,
-        fileUrl: url,
-        fileName: file.name,
+        fileUrl: linkUrl, // URL dari Google Drive/External
+        fileName: "External Link", // Placeholder
         uploadedBy: uploaderId,
         createdAt: Date.now()
       });
 
-      // 3. Reset & Close
+      // 4. Sukses
+      toast.success("Berhasil! Materi telah terbit.", { id: toastId });
+      
+      // Reset Form
       setTitle('');
       setDescription('');
-      setFile(null);
-      onSuccess();
-      onClose();
-    } catch (error) {
-      alert("Gagal mengupload modul.");
-      console.error(error);
+      setLinkUrl('');
+      
+      onSuccess(); // Refresh list
+      onClose();   // Tutup modal
+      
+    } catch (error: any) {
+      console.error("Save Error:", error);
+      toast.error("Gagal menyimpan data.", { id: toastId });
     } finally {
       setLoading(false);
     }
@@ -61,7 +77,7 @@ export const ModuleUploadModal: React.FC<ModuleUploadModalProps> = ({
         {/* Header */}
         <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
           <h3 className="font-black text-slate-800 text-lg flex items-center gap-2">
-            <Upload size={20} className="text-blue-600" /> Upload Materi Baru
+            <Link size={20} className="text-blue-600" /> Tambah Materi Baru
           </h3>
           <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500">
             <X size={18} />
@@ -71,33 +87,6 @@ export const ModuleUploadModal: React.FC<ModuleUploadModalProps> = ({
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           
-          {/* File Input */}
-          <div className="border-2 border-dashed border-blue-200 rounded-2xl p-6 text-center hover:bg-blue-50/50 transition-colors group cursor-pointer relative">
-            <input 
-              type="file" 
-              accept="application/pdf"
-              required
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
-            />
-            <div className="flex flex-col items-center">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 transition-colors ${file ? 'bg-red-100 text-red-500' : 'bg-blue-100 text-blue-500 group-hover:scale-110'}`}>
-                <FileText size={24} />
-              </div>
-              {file ? (
-                <div>
-                  <p className="font-bold text-slate-800 text-sm truncate max-w-[200px]">{file.name}</p>
-                  <p className="text-[10px] text-green-600 font-bold mt-1">Siap diupload</p>
-                </div>
-              ) : (
-                <>
-                  <p className="font-bold text-slate-600 text-sm">Klik untuk pilih file PDF</p>
-                  <p className="text-[10px] text-slate-400 mt-1">Maksimal 5MB</p>
-                </>
-              )}
-            </div>
-          </div>
-
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Judul Materi</label>
             <input 
@@ -105,9 +94,27 @@ export const ModuleUploadModal: React.FC<ModuleUploadModalProps> = ({
               required
               value={title}
               onChange={e => setTitle(e.target.value)}
-              placeholder="Contoh: Pengenalan Microsoft Word - Part 1"
+              placeholder="Contoh: Modul Excel Basic - Pertemuan 1"
               className="glass-input w-full font-bold text-slate-700"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Link Materi (Google Drive / PDF)</label>
+            <div className="relative">
+               <input 
+                type="url" 
+                required
+                value={linkUrl}
+                onChange={e => setLinkUrl(e.target.value)}
+                placeholder="https://drive.google.com/file/d/..."
+                className="glass-input w-full text-blue-600 font-medium pl-10"
+              />
+              <Link size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1 italic">
+              *Pastikan link Google Drive diset ke mode <b>"Anyone with the link"</b> agar bisa diakses peserta.
+            </p>
           </div>
 
           <div>
@@ -116,7 +123,7 @@ export const ModuleUploadModal: React.FC<ModuleUploadModalProps> = ({
               rows={3}
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="Jelaskan isi materi secara singkat..."
+              placeholder="Jelaskan instruksi pembelajaran..."
               className="glass-input w-full text-sm resize-none"
             />
           </div>
@@ -127,7 +134,7 @@ export const ModuleUploadModal: React.FC<ModuleUploadModalProps> = ({
             className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {loading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-            {loading ? 'Mengupload...' : 'Simpan & Publish'}
+            {loading ? 'Menyimpan...' : 'Simpan Materi'}
           </button>
 
         </form>

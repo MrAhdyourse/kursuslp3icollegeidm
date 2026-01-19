@@ -5,8 +5,7 @@ import {
   where, 
   getDocs, 
   deleteDoc,
-  doc,
-  orderBy
+  doc
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -65,19 +64,22 @@ export const moduleService = {
   // 3. Ambil Modul berdasarkan Program
   async getModulesByProgram(programId: string) {
     try {
-      // Cari modul yang programId-nya cocok (Case Insensitive search manual atau exact match)
-      // Untuk simpelnya kita pakai exact match dulu, nanti bisa diimprovisasi
+      // [FIXED] Hapus orderBy di query Firestore untuk menghindari 'Missing Index' error
+      // Kita filter saja, sorting dilakukan di client side (JavaScript)
       const q = query(
         collection(db, "modules"), 
-        where("programId", "==", programId),
-        orderBy("createdAt", "asc")
+        where("programId", "==", programId)
       );
       
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({
+      const modules = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as ModuleData[];
+
+      // Manual Sort di Client (Terbaru di bawah/Ascending)
+      return modules.sort((a, b) => a.createdAt - b.createdAt);
+      
     } catch (error) {
       console.error("Error fetching modules:", error);
       return [];

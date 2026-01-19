@@ -199,16 +199,6 @@ const Classmates: React.FC = () => {
               modules.map((mod, index) => (
                 <div key={mod.id} className="glass-panel p-6 flex items-start gap-5 group hover:border-blue-300 transition-colors relative">
                   
-                  {isInstructor && (
-                    <button 
-                      onClick={() => handleDeleteModule(mod.id!)}
-                      className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 transition-colors"
-                      title="Hapus Modul"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  )}
-
                   <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl flex items-center justify-center font-black text-xl shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform shrink-0">
                     {index + 1}
                   </div>
@@ -223,23 +213,34 @@ const Classmates: React.FC = () => {
                     </p>
                     
                     <div className="mt-5 flex gap-3">
+                      {/* Tombol Preview (Direct Link) */}
                       <a 
                         href={mod.fileUrl} 
                         target="_blank" 
                         rel="noreferrer"
                         className="px-5 py-2.5 bg-slate-800 text-white rounded-xl text-xs font-bold shadow-md hover:bg-slate-700 transition flex items-center gap-2"
                       >
-                        <PlayCircle size={16} /> Preview Materi
+                        <PlayCircle size={16} /> Buka Materi
                       </a>
+                      
+                      {/* Tombol Alternatif (Sama, untuk UX) */}
                       <a 
                         href={mod.fileUrl}
-                        download
                         target="_blank"
                         rel="noreferrer" 
                         className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition flex items-center gap-2"
                       >
-                        <FileText size={16} /> Baca PDF
+                        <FileText size={16} /> Download
                       </a>
+
+                      {isInstructor && (
+                        <button 
+                          onClick={() => handleDeleteModule(mod.id!)}
+                          className="px-4 py-2.5 bg-red-50 text-red-600 border border-red-100 rounded-xl text-xs font-bold hover:bg-red-100 transition flex items-center gap-2 ml-auto"
+                        >
+                          <Trash2 size={16} /> Hapus
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
