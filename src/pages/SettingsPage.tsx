@@ -232,6 +232,13 @@ const Settings: React.FC = () => {
     e.preventDefault();
     const uid = user?.uid || auth.currentUser?.uid;
     if (!uid) return;
+
+    // VALIDASI UKURAN FILE (MAX 5MB)
+    if (photoFile && photoFile.size > 5 * 1024 * 1024) {
+      alert("Ukuran foto terlalu besar! Maksimal 5MB.");
+      return;
+    }
+
     setLoading(true);
     try {
       let url = user?.photoURL || '';

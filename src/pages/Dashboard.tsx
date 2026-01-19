@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
 import { scheduleService } from '../services/scheduleService';
 import { LocationCard } from '../components/LocationCard';
+import { ScorePieChart } from '../components/charts/ScorePieChart'; // Import Chart
 import type { ClassGroup } from '../types';
 
 const Dashboard: React.FC = () => {
@@ -14,6 +15,15 @@ const Dashboard: React.FC = () => {
     activeClasses: 0,
     totalPrograms: 3
   });
+  
+  // Data Mock untuk Grafik
+  const chartData = [
+    { name: 'Sangat Baik', value: 35, color: '#10b981' },
+    { name: 'Baik', value: 45, color: '#3b82f6' },
+    { name: 'Cukup', value: 15, color: '#f59e0b' },
+    { name: 'Perlu Perbaikan', value: 5, color: '#ef4444' },
+  ];
+
   const [activeClassesList, setActiveClassesList] = useState<ClassGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -142,6 +152,33 @@ const Dashboard: React.FC = () => {
             <p className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Total Program</p>
             <h3 className="text-3xl font-black text-slate-800">{stats.totalPrograms}</h3>
           </div>
+        </div>
+      </div>
+
+      {/* 2.5 STATISTIK VISUAL SECTION */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="glass-panel p-6 lg:col-span-1 flex flex-col">
+          <h3 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2">
+            <span className="w-1.5 h-6 bg-purple-600 rounded-full"></span>
+            Distribusi Nilai
+          </h3>
+          <div className="flex-1 min-h-[300px] w-full relative">
+             {/* Container Chart yang Responsif */}
+             <ScorePieChart data={chartData} />
+          </div>
+        </div>
+
+        <div className="glass-panel p-6 lg:col-span-2 flex flex-col justify-center items-center text-center bg-gradient-to-br from-blue-50 to-white border-blue-100">
+           <div className="max-w-md">
+             <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
+               <BookOpen size={32} />
+             </div>
+             <h3 className="text-xl font-black text-slate-800 mb-2">Laporan Pembelajaran</h3>
+             <p className="text-slate-500 mb-6">Analisis mendalam mengenai perkembangan siswa tersedia di modul laporan.</p>
+             <Link to="/reports" className="btn-primary inline-flex">
+               Lihat Detail Laporan <ArrowRight size={18} />
+             </Link>
+           </div>
         </div>
       </div>
 

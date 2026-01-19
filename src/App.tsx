@@ -1,7 +1,7 @@
 import React, { useState, Component, type ErrorInfo, type ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { Layout } from './components/Layout';
+import { ResponsiveLayoutWrapper as Layout } from './components/ResponsiveLayoutWrapper';
 import { useAuth } from './context/AuthContext';
 import { SplashScreen } from './components/SplashScreen';
 import { PageTransition } from './components/PageTransition';

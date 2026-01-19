@@ -102,6 +102,13 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // VALIDASI UKURAN FILE (MAX 5MB)
+    if (photoFile && photoFile.size > 5 * 1024 * 1024) {
+      alert("Ukuran foto terlalu besar! Maksimal 5MB.");
+      return;
+    }
+
     setLoading(true);
 
     try {
