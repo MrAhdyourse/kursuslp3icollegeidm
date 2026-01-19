@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  Users, Search, Folder, ArrowLeft, ChevronRight, Lock, 
-  BookOpen, FileText, Award, PlayCircle, Clock, CheckCircle2, Plus, Trash2 
-} from 'lucide-react';
-import { studentService } from '../services/studentService';
+  Users, BookOpen, FileText, Award, ChevronRight, Clock, 
+  CheckCircle2, PlayCircle, Folder, Lock, ArrowLeft,
+  Plus, Trash2, Settings, Timer, Search
+} from 'lucide-react';import { studentService } from '../services/studentService';
 import { scheduleService } from '../services/scheduleService';
 import { moduleService, type ModuleData } from '../services/moduleService';
 import { examService } from '../services/examService';
@@ -28,9 +28,39 @@ const Classmates: React.FC = () => {
   // Exam State
   const [showExamResults, setShowExamResults] = useState(false);
   const [activeExamId, setActiveExamId] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<ClassTab>('STUDENTS'); // [RESTORED]
 
-  // Tab Navigasi (Default: Siswa)
-  const [activeTab, setActiveTab] = useState<ClassTab>('STUDENTS');
+  // COUNTDOWN LOGIC (Target: 20 Jan 2026 08:00)
+  const [examCountdown, setExamCountdown] = useState<string>('');
+  const [isExamOpen, setIsExamOpen] = useState(false);
+
+  useEffect(() => {
+    // Set Target Date: Selasa, 20 Januari 2026 jam 08:00 WIB
+    const targetDate = new Date('2026-01-20T08:00:00').getTime();
+
+    const updateTimer = () => {
+      const now = Date.now();
+      const diff = targetDate - now;
+
+      if (diff <= 0) {
+        setIsExamOpen(true);
+        setExamCountdown('UJIAN DIBUKA');
+      } else {
+        setIsExamOpen(false);
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        
+        setExamCountdown(`${days} Hari : ${hours} Jam : ${minutes} Menit : ${seconds} Detik`);
+      }
+    };
+
+    updateTimer(); // Initial call
+    const timer = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   // ... (Load Modules & Students Logic remains same) ...
 
@@ -257,47 +287,36 @@ const Classmates: React.FC = () => {
 
       case 'QUIZZES':
         return (
-          <div className="animate-fade-in-up max-w-5xl mx-auto">
-             <div className="flex justify-between items-center mb-8">
-               <div>
-                 <h3 className="text-xl font-bold text-slate-800">Evaluasi Berkala (Ujian Harian)</h3>
-                 <p className="text-sm text-slate-500">Tes pemahaman per topik bahasan.</p>
+          <div className="animate-fade-in-up max-w-xl mx-auto py-12">
+            <div className="relative bg-white/80 backdrop-blur-xl rounded-[2rem] p-10 text-center shadow-2xl shadow-slate-200 border border-white overflow-hidden group">
+               
+               {/* Animated Background Blob */}
+               <div className="absolute -top-20 -left-20 w-64 h-64 bg-blue-400/20 rounded-full blur-[80px] group-hover:bg-blue-400/30 transition-colors duration-1000"></div>
+               <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-orange-400/20 rounded-full blur-[80px] group-hover:bg-orange-400/30 transition-colors duration-1000"></div>
+
+               <div className="relative z-10 flex flex-col items-center">
+                 <div className="w-24 h-24 bg-gradient-to-tr from-slate-100 to-white rounded-3xl flex items-center justify-center mb-6 shadow-lg shadow-slate-200 border border-white transform rotate-6 hover:rotate-12 transition-transform duration-500">
+                    <Settings size={48} className="text-slate-400 animate-spin-slow" />
+                    <div className="absolute -bottom-2 -right-2 bg-red-500 text-white p-2 rounded-xl shadow-md border-2 border-white">
+                      <Lock size={16} />
+                    </div>
+                 </div>
+                 
+                 <h3 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Fitur Dalam Perawatan</h3>
+                 <p className="text-slate-500 text-sm leading-relaxed max-w-xs mx-auto mb-8 font-medium">
+                   Ups! Tim teknis kami sedang meningkatkan performa fitur ini agar pengalaman belajar Anda makin seru. Kembali lagi nanti ya! 🚀
+                 </p>
+                 
+                 <div className="flex flex-col gap-2 w-full max-w-xs">
+                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                       <div className="h-full bg-gradient-to-r from-blue-400 to-indigo-500 w-3/4 rounded-full animate-pulse"></div>
+                    </div>
+                    <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                       <span>Progress Update</span>
+                       <span>75%</span>
+                    </div>
+                 </div>
                </div>
-               {isInstructor && (
-                <button className="btn-primary px-4 py-2 flex items-center gap-2 text-xs">
-                  <Plus size={16} /> Buat Soal Baru
-                </button>
-               )}
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[1, 2].map((quiz) => (
-                <div key={quiz} className="glass-panel p-0 overflow-hidden group">
-                   <div className="h-2 bg-gradient-to-r from-orange-400 to-red-500"></div>
-                   <div className="p-6 relative">
-                      <div className="absolute top-4 right-4 p-2 bg-orange-50 text-orange-500 rounded-lg">
-                        <FileText size={24} />
-                      </div>
-                      
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">
-                        Quiz Pertemuan #{quiz * 4}
-                      </span>
-                      <h3 className="text-xl font-bold text-slate-800 mb-3 group-hover:text-orange-600 transition-colors">
-                        Evaluasi Logika & Fungsi Dasar
-                      </h3>
-                      
-                      <div className="flex flex-wrap gap-3 text-xs text-slate-500 mb-8">
-                        <span className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded"><Clock size={14} /> 45 Menit</span>
-                        <span className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded"><CheckCircle2 size={14} /> 20 Soal PG</span>
-                        <span className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded"><Award size={14} /> Min. Nilai 75</span>
-                      </div>
-                      
-                      <button className="w-full py-3 border border-orange-200 text-orange-600 font-bold rounded-xl hover:bg-orange-50 transition-colors flex items-center justify-center gap-2">
-                        {isInstructor ? 'Analisis Jawaban' : 'Kerjakan Sekarang'} <ChevronRight size={16} />
-                      </button>
-                   </div>
-                </div>
-              ))}
             </div>
           </div>
         );
@@ -318,6 +337,24 @@ const Classmates: React.FC = () => {
                    Ujian kompetensi menyeluruh sebagai syarat kelulusan dan pengambilan sertifikat. Pastikan Anda telah menyelesaikan seluruh modul prasyarat.
                  </p>
                  
+                 {/* COUNTDOWN TIMER SECTION */}
+                 {!isExamOpen && !isInstructor && (
+                   <div className="mb-10 bg-slate-900 text-white p-6 rounded-2xl shadow-2xl max-w-lg mx-auto border-2 border-slate-700 relative overflow-hidden group">
+                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-800 to-slate-950"></div>
+                     <div className="relative z-10">
+                        <div className="flex items-center justify-center gap-2 text-yellow-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-4">
+                           <Timer size={14} className="animate-pulse" /> Menuju Pembukaan Soal
+                        </div>
+                        <div className="text-2xl md:text-3xl font-black font-mono tracking-widest text-white tabular-nums drop-shadow-lg">
+                           {examCountdown}
+                        </div>
+                        <p className="mt-4 text-xs text-slate-400 font-medium border-t border-slate-700 pt-4">
+                           Akses akan terbuka otomatis pada <span className="text-yellow-400">Selasa, 20 Jan 2026 - 08:00 WIB</span>
+                        </p>
+                     </div>
+                   </div>
+                 )}
+
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto mb-10">
                     <div className="p-5 bg-white/80 rounded-2xl border border-yellow-100 shadow-sm backdrop-blur-sm">
                        <div className="text-3xl font-black text-slate-800">90</div>
@@ -350,10 +387,18 @@ const Classmates: React.FC = () => {
                    </div>
                  ) : (
                    <div className="text-center">
-                     <Link to="/exam" className="inline-flex items-center justify-center gap-3 px-12 py-4 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-2xl font-bold shadow-xl shadow-orange-500/30 hover:scale-105 transition-transform animate-pulse">
-                        <PlayCircle size={24} />
-                        MULAI UJIAN SEKARANG
-                     </Link>
+                     {isExamOpen ? (
+                        <Link to="/exam" className="inline-flex items-center justify-center gap-3 px-12 py-4 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-2xl font-bold shadow-xl shadow-orange-500/30 hover:scale-105 transition-transform animate-pulse">
+                           <PlayCircle size={24} />
+                           MULAI UJIAN SEKARANG
+                        </Link>
+                     ) : (
+                        <button disabled className="inline-flex items-center justify-center gap-3 px-12 py-4 bg-slate-200 text-slate-400 rounded-2xl font-bold cursor-not-allowed">
+                           <Lock size={20} />
+                           AKSES BELUM DIBUKA
+                        </button>
+                     )}
+                     
                      <p className="mt-4 text-xs text-slate-500 font-medium">
                        ⚠️ <b>Peringatan:</b> Waktu 180 menit berjalan mundur tanpa henti.<br/>Pastikan koneksi stabil sebelum memulai.
                      </p>
