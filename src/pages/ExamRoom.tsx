@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, CheckCircle, ChevronLeft, ChevronRight, List, FileSpreadsheet, FileText, Presentation, FolderOpen, Layers, Award, ArrowRightCircle } from 'lucide-react';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 import { examService } from '../services/examService';
 import type { ExamConfig, StudentExamSession } from '../types/exam';
@@ -23,9 +25,8 @@ const ExamRoom: React.FC = () => {
   // --- URUTAN LEVEL ESTAFET ---
   const LEVEL_ORDER = ['EXCEL', 'WORD', 'PPT', 'ARSIP', 'PRAKTIKUM'];
 
-  // --- 1. INITIALIZE GLOBAL SESSION (180 MIN) & LOCKDOWN ---
+  // --- 1. INITIALIZE & REAL-TIME SYNC (AUTO RESET) ---
   useEffect(() => {
-    // BLOKIR TOMBOL BACK BROWSER
     window.history.pushState(null, "", window.location.href);
     const handlePopState = () => {
       window.history.pushState(null, "", window.location.href);
@@ -35,33 +36,74 @@ const ExamRoom: React.FC = () => {
 
     if (!user) return;
 
-    const initGlobalSession = async () => {
+    let unsubscribe = () => {};
+
+    const initSession = async () => {
+      const EXAM_ID = 'GLOBAL_UJIKOM';
+      const DOC_ID = `${EXAM_ID}_${user.uid}`;
       const STORAGE_KEY = `ujikom_end_time_${user.uid}`;
       const COMPLETED_KEY = `ujikom_completed_${user.uid}`;
+
+      // 1. LISTEN KE FIRESTORE (REAL-TIME)
+      unsubscribe = onSnapshot(doc(db, "exam_sessions", DOC_ID), (docSnap) => {
+         
+         // SKENARIO A: ADMIN MERESET DATA (Dokumen hilang di server)
+         if (!docSnap.exists()) {
+            console.log("⚠️ RESET DETECTED! Clearing ALL local data...");
+            
+            // 1. WILD REMOVE: Hapus semua key yang berbau ujikom
+            Object.keys(localStorage).forEach(key => {
+               if (key.startsWith('ujikom_') || key.includes('exam_sessions')) {
+                  localStorage.removeItem(key);
+               }
+            });
+            
+            // 2. Clear State
+            setCompletedTopics([]); 
+            setAnswers({});
+            setSession(null);
+            
+            toast.error("UJIAN DI-RESET ADMIN. Halaman akan dimuat ulang...", { duration: 2000 });
+               
+            // 3. HARD RELOAD (Nuklir Option: Agar RAM bersih)
+            setTimeout(() => {
+               window.location.reload();
+            }, 1000);
+         }  
+         // SKENARIO B: DATA ADA DI SERVER (Resume / Sync)
+         else {
+            const cloudData = docSnap.data() as StudentExamSession;
+            console.log("Syncing from Cloud...");
+            
+            // Sync status
+            if (cloudData.status === 'SUBMITTED') {
+               // BYPASS MODE AKTIF: Komen baris redirect di bawah ini agar bisa tes berulang
+               // navigate('/reports'); 
+               toast("Mode Pengembang: Ujian sudah submit, tapi akses dibuka.", { icon: '🛠️' });
+            }
+
+            setSession(cloudData);
+            if (cloudData.answers) setAnswers(cloudData.answers);
+            
+            // Sync Completed Topics (Opsional, jika disimpan di cloud)
+            const savedCompleted = localStorage.getItem(COMPLETED_KEY);
+            if (savedCompleted) setCompletedTopics(JSON.parse(savedCompleted));
+         }
+      });
       
-      // Load completed topics from local storage if any
-      const savedCompleted = localStorage.getItem(COMPLETED_KEY);
-      if (savedCompleted) setCompletedTopics(JSON.parse(savedCompleted));
-
+      // Timer Setup (Local)
       let endTime = Number(localStorage.getItem(STORAGE_KEY));
-
       if (!endTime || endTime < Date.now()) {
         endTime = Date.now() + (180 * 60 * 1000);
         localStorage.setItem(STORAGE_KEY, endTime.toString());
       }
-
-      const dummyExamData: any = { id: 'GLOBAL_UJIKOM', durationMinutes: 180 };
-      const sessionData = await examService.startExam(user.uid, dummyExamData);
-      
-      sessionData.endTime = endTime;
-      setSession(sessionData);
-      if (sessionData.answers) setAnswers(sessionData.answers);
     };
 
-    initGlobalSession();
+    initSession();
 
     return () => {
       window.removeEventListener('popstate', handlePopState);
+      unsubscribe();
     };
   }, [user]);
 
@@ -181,9 +223,33 @@ const ExamRoom: React.FC = () => {
   const forceFinalSubmit = async () => {
     if (!session) return;
     setLoading(true);
-    // Submit all remaining logic here if needed
-    toast.success("Ujian Selesai! Mengalihkan ke halaman laporan...");
-    navigate('/reports');
+    const toastId = toast.loading("Menyerahkan seluruh jawaban...");
+
+    try {
+      // 1. Ambil Data Soal Lengkap (OMNIBUS) untuk Kalkulasi Skor Akhir
+      const omnibusExam = await examService.getExamByProgram((user as any)?.program || 'Administrasi Perkantoran', 'OMNIBUS');
+      
+      // 2. Update Session dengan Jawaban Terakhir
+      const finalSession = { ...session, answers };
+      
+      // 3. Submit ke Service (Local + Firebase Sync)
+      if (omnibusExam && omnibusExam.questions) {
+        await examService.submitExam(finalSession, omnibusExam.questions);
+      } else {
+        // Fallback jika gagal load soal (tetap submit status)
+        await examService.submitExam(finalSession, []); 
+      }
+
+      toast.success("Ujian Selesai! Terima kasih.", { id: toastId });
+      
+      // 4. Redirect
+      navigate('/reports');
+    } catch (error) {
+      console.error("Final Submit Error:", error);
+      toast.error("Gagal menyerahkan ujian. Coba lagi.", { id: toastId });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -305,11 +371,29 @@ const ExamRoom: React.FC = () => {
             })}
           </div>
 
-          <div className="mt-12 flex justify-center">
-             <button onClick={() => handleStartExam('OMNIBUS')} className="bg-slate-900 text-white px-12 py-6 rounded-3xl flex items-center gap-5 hover:bg-slate-800 shadow-2xl transition-all hover:scale-105 group">
+          <div className="mt-12 flex flex-col items-center gap-6">
+             {/* TOMBOL FINAL SUBMIT (JIKA SEMUA SELESAI) */}
+             {LEVEL_ORDER.every(topic => completedTopics.includes(topic)) && (
+               <div className="w-full max-w-2xl bg-emerald-50 border-2 border-emerald-200 rounded-3xl p-8 text-center animate-fade-in-up">
+                 <h3 className="text-2xl font-black text-emerald-700 mb-2 flex items-center justify-center gap-2">
+                   <CheckCircle size={32} /> SELURUH MODUL SELESAI
+                 </h3>
+                 <p className="text-emerald-600 mb-6 font-medium">Anda telah menyelesaikan semua tahapan ujian. Silakan serahkan hasil kerja Anda sekarang.</p>
+                 <button 
+                   onClick={() => {
+                     if(confirm("Yakin ingin menyerahkan seluruh hasil ujian?")) forceFinalSubmit();
+                   }}
+                   className="bg-emerald-600 text-white px-12 py-5 rounded-2xl font-bold shadow-xl hover:bg-emerald-700 hover:scale-105 transition-all flex items-center gap-3 mx-auto text-lg animate-pulse"
+                 >
+                   SERAHKAN JAWABAN & KELUAR <ArrowRightCircle size={24} />
+                 </button>
+               </div>
+             )}
+
+             <button onClick={() => handleStartExam('OMNIBUS')} className="bg-slate-900 text-white px-12 py-6 rounded-3xl flex items-center gap-5 hover:bg-slate-800 shadow-2xl transition-all hover:scale-105 group opacity-80 hover:opacity-100">
               <Layers size={32} className="text-yellow-400 group-hover:rotate-12 transition-transform" />
               <div className="text-left">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tantangan Utama</div>
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Opsi Tambahan</div>
                 <div className="text-xl font-black tracking-tight">OMNIBUS (Mode Campuran)</div>
               </div>
             </button>
@@ -468,15 +552,49 @@ const ExamRoom: React.FC = () => {
                 <ChevronLeft size={20} /> Sebelumnya
               </button>
               
-              {currentQIndex === exam.questions.length - 1 ? (
-                (selectedTopic !== 'OMNIBUS' && LEVEL_ORDER.includes(selectedTopic || '') && selectedTopic !== 'ARSIP') ? (
-                  <button onClick={handleNextLevel} className="bg-blue-600 text-white px-10 py-4 rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition-all flex items-center gap-2">SELESAI {selectedTopic} <ArrowRightCircle size={20} /></button>
-                ) : (
-                  <button onClick={() => handleSubmit(false)} className="bg-emerald-600 text-white px-10 py-4 rounded-2xl font-bold shadow-lg hover:bg-emerald-700 transition-all flex items-center gap-2 animate-pulse"><CheckCircle size={20} /> KUMPULKAN SEMUA</button>
-                )
-              ) : (
-                <button onClick={handleSmartNext} className={`px-8 py-4 rounded-2xl font-bold shadow-lg flex items-center gap-2 transition-all ${isSectionChange ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-slate-800 text-white hover:bg-slate-700'}`}>{isSectionChange ? <>LANJUT: {nextCat?.label} <ArrowRightCircle size={20} /></> : <>Selanjutnya <ChevronRight size={20} /></>}</button>
-              )}
+              {(() => {
+                const isLastQuestion = currentQIndex === exam.questions.length - 1;
+                const isOmnibus = selectedTopic === 'OMNIBUS';
+                // Cek apakah topik saat ini adalah yang terakhir di LEVEL_ORDER (PRAKTIKUM)
+                const isFinalLevel = selectedTopic === LEVEL_ORDER[LEVEL_ORDER.length - 1]; 
+                
+                // Cari topik selanjutnya untuk label tombol
+                const currentLevelIdx = LEVEL_ORDER.indexOf(selectedTopic || '');
+                const nextTopicLabel = (currentLevelIdx >= 0 && currentLevelIdx < LEVEL_ORDER.length - 1) 
+                  ? LEVEL_ORDER[currentLevelIdx + 1] 
+                  : 'BERIKUTNYA';
+
+                if (isLastQuestion) {
+                  if (isOmnibus || isFinalLevel) {
+                    return (
+                      <div className="flex gap-2">
+                         <button onClick={() => handleSubmit(false)} className="bg-emerald-600 text-white px-10 py-4 rounded-2xl font-bold shadow-lg hover:bg-emerald-700 transition-all flex items-center gap-2 animate-pulse">
+                           <CheckCircle size={20} /> KUMPULKAN SEMUA
+                         </button>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <button onClick={handleNextLevel} className="bg-blue-600 text-white px-10 py-4 rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition-all flex items-center gap-2">
+                        SELESAI {selectedTopic} <ArrowRightCircle size={20} /> LANJUT {nextTopicLabel}
+                      </button>
+                    );
+                  }
+                } else {
+                  return (
+                    <button onClick={handleSmartNext} className={`px-8 py-4 rounded-2xl font-bold shadow-lg flex items-center gap-2 transition-all ${isSectionChange ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-slate-800 text-white hover:bg-slate-700'}`}>
+                      {isSectionChange ? <>LANJUT: {nextCat?.label} <ArrowRightCircle size={20} /></> : <>Selanjutnya <ChevronRight size={20} /></>}
+                    </button>
+                  );
+                }
+              })()}
+            </div>
+            
+            {/* EMERGENCY EXIT */}
+            <div className="mt-4 text-center">
+               <button onClick={() => handleSubmit(true)} className="text-[10px] text-slate-300 hover:text-red-400 font-bold underline decoration-dotted cursor-pointer" title="Gunakan tombol ini jika tombol utama bermasalah">
+                 Simpan & Keluar Paksa (Darurat)
+               </button>
             </div>
           </div>
         </div>
