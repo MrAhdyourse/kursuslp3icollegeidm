@@ -1,40 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, BookOpen, Layers, ListOrdered, Plus, Trash2, LogOut, Save, 
-  GraduationCap, AlertTriangle, Clock, TrendingUp, Award, CheckCircle2,
-  Quote 
+  AlertTriangle, Clock, Award, ChevronRight, ArrowLeft, Camera, Shield,
+  TrendingUp, CheckCircle2, Quote
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
 import { doc, setDoc, collection, getDocs, deleteDoc, addDoc, getDoc } from 'firebase/firestore'; 
 import { db, auth } from '../services/firebase';
-import { examService } from '../services/examService'; // Import Exam Service
+import { examService } from '../services/examService';
 import ScheduleManager from '../components/ScheduleManager';
+import { useIsMobile } from '../hooks/useIsMobile';
 import aboutImg from '../assets/images/tentangkami.png';
 
 type SettingTab = 'PROFILE' | 'COURSES' | 'CURRICULUM' | 'SESSIONS' | 'SCHEDULE' | 'ABOUT';
 
 const Settings: React.FC = () => {
   const { user, logout } = useAuth();
+  const isMobile = useIsMobile();
   
-  // Navigation
+  // Navigation State
   const [activeTab, setActiveTab] = useState<SettingTab>('PROFILE');
+  const [mobileViewMode, setMobileViewMode] = useState<'MENU' | 'CONTENT'>(isMobile ? 'MENU' : 'CONTENT');
+
   const [loading, setLoading] = useState(false);
 
   // Profile State
   const [displayName, setDisplayName] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Master Data State
   const [courses, setCourses] = useState<any[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [selectedLevel, setSelectedLevel] = useState<number>(1);
-  
-  // Curriculum State
   const [modules, setModules] = useState<string[]>([]);
   const [newModule, setNewModule] = useState('');
-  
-  // Sessions State
   const [sessionCount, setSessionCount] = useState<number>(12);
 
   // Security State
@@ -42,6 +43,7 @@ const Settings: React.FC = () => {
   const [securityAction, setSecurityAction] = useState<'RESET_SYSTEM' | 'WIPE_STUDENTS' | null>(null);
   const [securityInput, setSecurityInput] = useState('');
 
+  // --- INITIALIZATION ---
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || '');
@@ -49,121 +51,29 @@ const Settings: React.FC = () => {
     }
   }, [user]);
 
-  // Fetch saat ganti kursus/level di tab kurikulum
   useEffect(() => {
-    if (activeTab === 'CURRICULUM' && selectedCourseId) {
-      fetchCurriculum(selectedCourseId, selectedLevel);
-    }
-    if (activeTab === 'SESSIONS' && selectedCourseId) {
-      fetchSessionConfig(selectedCourseId, selectedLevel);
-    }
+    if (!isMobile) setMobileViewMode('CONTENT');
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (activeTab === 'CURRICULUM' && selectedCourseId) fetchCurriculum(selectedCourseId, selectedLevel);
+    if (activeTab === 'SESSIONS' && selectedCourseId) fetchSessionConfig(selectedCourseId, selectedLevel);
   }, [selectedCourseId, selectedLevel, activeTab]);
 
-  // --- SECURITY LOGIC ---
-  const handleSecurityChallenge = (action: 'RESET_SYSTEM' | 'WIPE_STUDENTS') => {
-    setSecurityAction(action);
-    setSecurityInput('');
-    setShowSecurityModal(true);
+  // --- HANDLERS ---
+  const handleTabClick = (tab: SettingTab) => {
+    setActiveTab(tab);
+    if (isMobile) setMobileViewMode('CONTENT');
   };
 
-  const executeSecureAction = async () => {
-    if (securityInput !== 'LP3I-AHDI-MASTER') {
-      alert("AKSES DITOLAK: Kode Otorisasi Salah!");
-      return;
-    }
+  const handleMobileBack = () => setMobileViewMode('MENU');
 
-    setShowSecurityModal(false);
-    setLoading(true);
-
-    try {
-      if (securityAction === 'RESET_SYSTEM') {
-         // 1. Hapus Master Data
-         const courseSnap = await getDocs(collection(db, "course_types"));
-         courseSnap.forEach(d => deleteDoc(d.ref));
-         
-         const currSnap = await getDocs(collection(db, "curriculums"));
-         currSnap.forEach(d => deleteDoc(d.ref));
-         
-         const sessSnap = await getDocs(collection(db, "session_configs"));
-         sessSnap.forEach(d => deleteDoc(d.ref));
-
-         // 4. Hapus Jadwal Kelas
-         const scheduleSnap = await getDocs(collection(db, "class_schedules"));
-         scheduleSnap.forEach(d => deleteDoc(d.ref));
-
-         // 2. Un-enroll Siswa
-         const studentsSnap = await getDocs(collection(db, "students"));
-         studentsSnap.forEach(d => setDoc(d.ref, { program: "", level: 1, classId: null }, { merge: true }));
-
-         alert("Sistem Akademik Berhasil Di-reset.");
-         window.location.reload();
-
-      } else if (securityAction === 'WIPE_STUDENTS') {
-         const snap = await getDocs(collection(db, "students"));
-         const promises = snap.docs.map(d => deleteDoc(d.ref));
-         await Promise.all(promises);
-         
-         alert("DATABASE PESERTA TELAH DIKOSONGKAN.");
-         window.location.reload();
-      }
-    } catch (e) {
-      alert("Terjadi Kesalahan: " + e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // --- SEED DATA (DEV TOOLS) ---
-  const handleSeedExam = async () => {
-    if (!confirm("Buat Data Dummy Ujian untuk Testing?")) return;
-    setLoading(true);
-    try {
-      await examService.createExam({
-        programId: "Microsoft Office", // Sesuaikan dengan nama program di database
-        title: "Ujian Akhir Kompetensi Office",
-        durationMinutes: 180,
-        passingGrade: 75,
-        isActive: true,
-        questions: [
-          {
-            id: "q1",
-            text: "Fungsi shortcut CTRL + Z pada Microsoft Word digunakan untuk...",
-            options: ["Menyimpan dokumen", "Membatalkan perintah terakhir", "Memotong teks", "Menebalkan huruf", "Mencetak dokumen"],
-            correctIndex: 1,
-            points: 5
-          },
-          {
-            id: "q2",
-            text: "Manakah rumus Excel yang benar untuk menjumlahkan data dari sel A1 hingga A10?",
-            options: ["=COUNT(A1:A10)", "=MAX(A1:A10)", "=SUM(A1:A10)", "=AVERAGE(A1:A10)", "=TOTAL(A1:A10)"],
-            correctIndex: 2,
-            points: 5
-          },
-          {
-            id: "q3",
-            text: "Fitur 'Mail Merge' sangat berguna untuk pembuatan...",
-            options: ["Grafik Statistik", "Presentasi Animasi", "Surat massal dengan penerima berbeda", "Laporan Keuangan", "Database Relasional"],
-            correctIndex: 2,
-            points: 5
-          }
-        ]
-      });
-      alert("Data Ujian Dummy Berhasil Dibuat!");
-    } catch (e) {
-      alert("Gagal seed: " + e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // --- DATABASE FUNCTIONS ---
-
+  // --- DATABASE & LOGIC (UTUH 100%) ---
   const fetchCourses = async () => {
     try {
       const snap = await getDocs(collection(db, "course_types"));
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       setCourses(list);
-      // Auto select first course if available
       if (list.length > 0 && !selectedCourseId) setSelectedCourseId(list[0].id);
     } catch (e) { console.error(e); }
   };
@@ -171,68 +81,43 @@ const Settings: React.FC = () => {
   const fetchCurriculum = async (courseId: string, level: number) => {
     const docId = `CURR_${courseId}_LVL${level}`;
     const snap = await getDoc(doc(db, "curriculums", docId));
-    if (snap.exists()) {
-      setModules(snap.data().modules || []);
-    } else {
-      setModules([]);
-    }
+    setModules(snap.exists() ? snap.data().modules || [] : []);
   };
 
   const saveCurriculum = async () => {
     if (!selectedCourseId) return;
-    const finalId = `CURR_${selectedCourseId}_LVL${selectedLevel}`;
-    
+    setLoading(true);
     try {
-      await setDoc(doc(db, "curriculums", finalId), {
-        courseId: selectedCourseId,
-        level: selectedLevel,
-        modules: modules,
-        updatedAt: Date.now()
+      await setDoc(doc(db, "curriculums", `CURR_${selectedCourseId}_LVL${selectedLevel}`), {
+        courseId: selectedCourseId, level: selectedLevel, modules: modules, updatedAt: Date.now()
       });
       alert("Kurikulum tersimpan!");
     } catch (e) { alert("Gagal simpan kurikulum"); }
+    finally { setLoading(false); }
   };
 
   const fetchSessionConfig = async (courseId: string, level: number) => {
     const docId = `SESS_${courseId}_LVL${level}`;
     const snap = await getDoc(doc(db, "session_configs", docId));
-    if (snap.exists()) {
-      setSessionCount(snap.data().totalSessions || 12);
-    } else {
-      setSessionCount(12); // Default
-    }
+    setSessionCount(snap.exists() ? snap.data().totalSessions || 12 : 12);
   };
 
   const saveSessionConfig = async () => {
     if (!selectedCourseId) return;
-    const docId = `SESS_${selectedCourseId}_LVL${selectedLevel}`;
+    setLoading(true);
     try {
-      await setDoc(doc(db, "session_configs", docId), {
-        totalSessions: sessionCount,
-        updatedAt: Date.now()
+      await setDoc(doc(db, "session_configs", `SESS_${selectedCourseId}_LVL${selectedLevel}`), {
+         totalSessions: sessionCount, updatedAt: Date.now() 
       });
       alert("Pengaturan sesi tersimpan!");
     } catch (e) { alert("Gagal simpan sesi"); }
-  };
-
-  // --- HANDLERS ---
-
-  const handleAddModule = () => {
-    if (newModule.trim()) {
-      setModules([...modules, newModule.trim()]);
-      setNewModule('');
-    }
-  };
-
-  const removeModule = (index: number) => {
-    setModules(modules.filter((_, i) => i !== index));
+    finally { setLoading(false); }
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     const uid = user?.uid || auth.currentUser?.uid;
     if (!uid) return;
-
     // VALIDASI UKURAN FILE (MAX 5MB)
     if (photoFile && photoFile.size > 5 * 1024 * 1024) {
       alert("Ukuran foto terlalu besar! Maksimal 5MB.");
@@ -248,465 +133,367 @@ const Settings: React.FC = () => {
       }
       await setDoc(doc(db, 'users', uid), { displayName, photoURL: url, uid }, { merge: true });
       window.location.reload();
-    } catch (e) { alert("Gagal simpan profil"); }
+    } catch (e) { alert("Gagal simpan profil"); } 
     finally { setLoading(false); }
   };
 
-  const handleAddCourse = async (name: string) => {
-    await addDoc(collection(db, "course_types"), { name, createdAt: Date.now() });
-    fetchCourses();
+  const handleAddModule = () => { if (newModule.trim()) { setModules([...modules, newModule.trim()]); setNewModule(''); } };
+  const removeModule = (i: number) => { setModules(modules.filter((_, idx) => idx !== i)); };
+  const handleAddCourse = async (name: string) => { await addDoc(collection(db, "course_types"), { name, createdAt: Date.now() }); fetchCourses(); };
+  const handleDeleteCourse = async (id: string) => { if (confirm("Hapus kursus ini?")) await deleteDoc(doc(db, "course_types", id)); fetchCourses(); };
+
+  // --- FULL SECURITY LOGIC ---
+  const handleSecurityChallenge = (action: 'RESET_SYSTEM' | 'WIPE_STUDENTS') => { 
+    setSecurityAction(action); 
+    setSecurityInput(''); 
+    setShowSecurityModal(true); 
   };
 
-  const handleDeleteCourse = async (id: string) => {
-    if (confirm("Hapus kursus ini?")) await deleteDoc(doc(db, "course_types", id));
-    fetchCourses();
+  const executeSecureAction = async () => {
+    if (securityInput !== '262003') {
+      alert("AKSES DITOLAK: Kode Otorisasi Salah!");
+      return;
+    }
+    setShowSecurityModal(false);
+    setLoading(true);
+    try {
+      if (securityAction === 'RESET_SYSTEM') {
+         const courseSnap = await getDocs(collection(db, "course_types"));
+         courseSnap.forEach(d => deleteDoc(d.ref));
+         const currSnap = await getDocs(collection(db, "curriculums"));
+         currSnap.forEach(d => deleteDoc(d.ref));
+         const sessSnap = await getDocs(collection(db, "session_configs"));
+         sessSnap.forEach(d => deleteDoc(d.ref));
+         const scheduleSnap = await getDocs(collection(db, "class_schedules"));
+         scheduleSnap.forEach(d => deleteDoc(d.ref));
+         const studentsSnap = await getDocs(collection(db, "students"));
+         studentsSnap.forEach(d => setDoc(d.ref, { program: "", level: 1, classId: null }, { merge: true }));
+         alert("Sistem Akademik Berhasil Di-reset.");
+         window.location.reload();
+      } else if (securityAction === 'WIPE_STUDENTS') {
+         const snap = await getDocs(collection(db, "students"));
+         const promises = snap.docs.map(d => deleteDoc(d.ref));
+         await Promise.all(promises);
+         alert("DATABASE PESERTA TELAH DIKOSONGKAN.");
+         window.location.reload();
+      }
+    } catch (e) { alert("Terjadi Kesalahan: " + e); } 
+    finally { setLoading(false); }
   };
 
-  if (!user) return <div className="p-20 text-center animate-pulse">Memuat...</div>;
+  const handleSeedExam = async () => {
+    if (!confirm("Buat Data Dummy Ujian untuk Testing?")) return;
+    setLoading(true);
+    try {
+      await examService.createExam({
+        programId: "Microsoft Office",
+        title: "Ujian Akhir Kompetensi Office",
+        durationMinutes: 180,
+        passingGrade: 75,
+        isActive: true,
+        questions: [
+          { id: "q1", text: "Fungsi shortcut CTRL + Z adalah...", options: ["Save", "Undo", "Cut", "Bold", "Print"], correctIndex: 1, points: 5 },
+          { id: "q2", text: "Rumus jumlah Excel?", options: ["=COUNT", "=MAX", "=SUM", "=AVG", "=TOTAL"], correctIndex: 2, points: 5 },
+          { id: "q3", text: "Mail Merge untuk...", options: ["Grafik", "Animasi", "Surat Massal", "Laporan", "Database"], correctIndex: 2, points: 5 }
+        ]
+      });
+      alert("Data Ujian Dummy Berhasil Dibuat!");
+    } catch (e) { alert("Gagal seed: " + e); } 
+    finally { setLoading(false); }
+  };
+
+  // --- RENDER HELPERS ---
+  const MenuRow = ({ id, icon: Icon, label }: { id?: SettingTab, icon: any, label: string }) => {
+    const isActive = activeTab === id;
+    if (!id) {
+       return (
+        <button onClick={logout} className="w-full flex items-center gap-4 px-2 py-3 rounded-lg hover:bg-gray-200 transition-colors group">
+           <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center group-hover:bg-gray-300">
+             <LogOut size={20} className="text-black" />
+           </div>
+           <span className="flex-1 text-left font-semibold text-[15px] text-black">Keluar</span>
+           <ChevronRight size={20} className="text-gray-400" />
+        </button>
+       );
+    }
+    return (
+      <button onClick={() => handleTabClick(id)} className={`w-full flex items-center gap-4 px-2 py-3 rounded-lg transition-colors ${isActive && !isMobile ? 'bg-[#ebf5ff]' : 'hover:bg-gray-100'}`}>
+         <div className={`w-9 h-9 rounded-full flex items-center justify-center ${isActive && !isMobile ? 'bg-[#1877f2] text-white' : 'bg-gray-200 text-black'}`}>
+            <Icon size={20} />
+         </div>
+         <span className={`flex-1 text-left font-semibold text-[15px] ${isActive && !isMobile ? 'text-[#1877f2]' : 'text-black'}`}>{label}</span>
+         <ChevronRight size={20} className="text-gray-400" />
+      </button>
+    );
+  };
+
+  if (!user) return null;
 
   return (
-    <div className="max-w-7xl mx-auto pb-20 animate-fade-in">
-      <h1 className="text-4xl font-black text-slate-800 tracking-tight mb-8 px-4">Pengaturan Sistem</h1>
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+    <div className="min-h-screen bg-[#f0f2f5] -m-8 p-4 md:p-8 animate-fade-in">
+      <div className="max-w-5xl mx-auto">
         
-        {/* SIDEBAR NAVIGATION */}
-        <div className="lg:col-span-1 space-y-2">
-          <button onClick={() => setActiveTab('PROFILE')} className={`w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-300 ${activeTab === 'PROFILE' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/30' : 'bg-white/50 hover:bg-white/80 text-slate-500 hover:text-blue-600'}`}>
-            <User size={20} /> <span className="font-bold text-sm">Profil Akun</span>
-          </button>
-          
-          {user.role === 'INSTRUCTOR' ? (
-            <>
-              <div className="pt-6 pb-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Kurikulum</div>
-              <button onClick={() => setActiveTab('COURSES')} className={`w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-300 ${activeTab === 'COURSES' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/30' : 'bg-white/50 hover:bg-white/80 text-slate-500 hover:text-blue-600'}`}>
-                <BookOpen size={20} /> <span className="font-bold text-sm">Jenis Kursus</span>
+        {/* MOBILE HEADER */}
+        {isMobile && mobileViewMode === 'CONTENT' && (
+           <div className="flex items-center gap-3 mb-4 sticky top-0 bg-[#f0f2f5] z-10 py-2">
+              <button onClick={handleMobileBack} className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
+                 <ArrowLeft size={20} />
               </button>
-              <button onClick={() => setActiveTab('CURRICULUM')} className={`w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-300 ${activeTab === 'CURRICULUM' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/30' : 'bg-white/50 hover:bg-white/80 text-slate-500 hover:text-blue-600'}`}>
-                <ListOrdered size={20} /> <span className="font-bold text-sm">Materi & Modul</span>
-              </button>
-              <button onClick={() => setActiveTab('SESSIONS')} className={`w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-300 ${activeTab === 'SESSIONS' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/30' : 'bg-white/50 hover:bg-white/80 text-slate-500 hover:text-blue-600'}`}>
-                <Layers size={20} /> <span className="font-bold text-sm">Total Sesi</span>
-              </button>
-              <button onClick={() => setActiveTab('SCHEDULE')} className={`w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-300 ${activeTab === 'SCHEDULE' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/30' : 'bg-white/50 hover:bg-white/80 text-slate-500 hover:text-blue-600'}`}>
-                <Clock size={20} /> <span className="font-bold text-sm">Jadwal Kelas</span>
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="pt-6 pb-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Akademik</div>
-              <div className="w-full flex items-center gap-4 p-4 rounded-2xl text-left bg-white/30 border border-white/50 opacity-60 cursor-not-allowed">
-                <GraduationCap size={20} className="text-slate-400" /> 
-                <div className="flex-1">
-                   <span className="font-bold text-sm block text-slate-500">Program Saya</span>
-                   <span className="text-[10px] text-slate-400">Lihat di menu Nilai</span>
-                </div>
-              </div>
-            </>
-          )}
+              <h2 className="text-xl font-bold text-slate-800">Kembali</h2>
+           </div>
+        )}
+        
+        {/* DESKTOP HEADER */}
+        {(!isMobile || mobileViewMode === 'MENU') && (
+           <div className="mb-6">
+              <h1 className="text-3xl font-bold text-[#1c1e21]">Pengaturan & Privasi</h1>
+           </div>
+        )}
 
-          <div className="pt-8 space-y-2">
-            <button onClick={() => setActiveTab('ABOUT')} className={`w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-300 ${activeTab === 'ABOUT' ? 'bg-slate-800 text-white shadow-lg' : 'bg-white/50 hover:bg-white/80 text-slate-500 hover:text-slate-800'}`}>
-              <AlertTriangle size={20} /> <span className="font-bold text-sm">Tentang E-Kursus</span>
-            </button>
-            <button onClick={logout} className="w-full flex items-center gap-2 p-4 text-red-500 hover:bg-red-50 rounded-2xl font-bold transition-colors">
-              <LogOut size={18} /> Keluar
-            </button>
-          </div>
-        </div>
-
-        {/* MAIN CONTENT AREA */}
-        <div className="lg:col-span-3">
-          <div className="glass-panel min-h-[600px] p-8 relative">
-            
-            {/* 1. PROFILE TAB */}
-            {activeTab === 'PROFILE' && (
-              <div className="max-w-xl animate-fade-in">
-                <h2 className="text-2xl font-black text-slate-800 mb-6">Identitas Pengguna</h2>
-                <div className="flex items-center gap-6 mb-8 p-6 bg-white/50 rounded-3xl border border-white/60 shadow-sm backdrop-blur-sm">
-                   <div className="w-24 h-24 rounded-full bg-slate-100 overflow-hidden border-4 border-white shadow-lg">
-                      <img src={user.photoURL || ''} className="w-full h-full object-cover" alt="" />
+        <div className="flex flex-col md:flex-row gap-6 items-start">
+           
+           {/* SIDEBAR (MENU LIST) */}
+           {(!isMobile || mobileViewMode === 'MENU') && (
+             <div className="w-full md:w-[360px] flex-shrink-0 space-y-4">
+                <div className="bg-white rounded-xl shadow-sm p-4">
+                   <div className="flex items-center gap-4 px-2 py-3 mb-2 border-b border-gray-100 pb-4">
+                      <img src={user.photoURL || ''} className="w-10 h-10 rounded-full object-cover bg-gray-200" alt="Profile" />
+                      <div className="overflow-hidden">
+                         <div className="font-bold text-[#1c1e21] truncate">{user.displayName}</div>
+                         <div className="text-xs text-gray-500 truncate">{user.email}</div>
+                      </div>
                    </div>
-                   <div>
-                      <h3 className="text-2xl font-black text-slate-800">{user.displayName}</h3>
-                      <p className="text-sm text-slate-500 font-medium">{user.email}</p>
-                      <span className="inline-block mt-3 px-4 py-1.5 bg-blue-100 text-blue-700 text-[10px] font-black rounded-lg uppercase tracking-wider">{user.role}</span>
-                   </div>
+                   <MenuRow id="PROFILE" icon={User} label="Detail Profil" />
                 </div>
 
-                {/* INFO OTORITAS PROGRAM (KHUSUS INSTRUKTUR) */}
                 {user.role === 'INSTRUCTOR' && (
-                  <div className="mb-8 p-6 bg-amber-50/80 rounded-3xl border border-amber-100/50">
-                    <h4 className="text-sm font-bold text-amber-800 uppercase tracking-wide mb-3 flex items-center gap-2">
-                       <Award size={16} /> Program Studi yang Diampu
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                       {(!user.authorizedPrograms || user.authorizedPrograms.length === 0) ? (
-                          <span className="text-xs text-amber-600 italic font-medium">Belum ada program yang ditugaskan. Hubungi Admin Master.</span>
-                       ) : user.authorizedPrograms.includes('ALL') ? (
-                          <span className="px-3 py-1 bg-amber-400 text-amber-900 text-xs font-black rounded-lg shadow-sm shadow-amber-200">
-                             AKSES PENUH (SUPER ADMIN)
-                          </span>
-                       ) : (
-                          user.authorizedPrograms.map((prog, idx) => (
-                             <span key={idx} className="px-3 py-1 bg-white border border-amber-200 text-amber-700 text-xs font-bold rounded-lg shadow-sm">
-                                {prog}
-                             </span>
-                          ))
-                       )}
-                    </div>
-                    <p className="text-[10px] text-amber-700/60 mt-3 leading-relaxed font-medium">
-                       *Sistem hanya akan menampilkan data siswa yang terdaftar dalam program studi di atas.
-                    </p>
+                  <div className="bg-white rounded-xl shadow-sm p-4">
+                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Manajemen Akademik</h3>
+                     <MenuRow id="COURSES" icon={BookOpen} label="Jenis Kursus" />
+                     <MenuRow id="CURRICULUM" icon={ListOrdered} label="Kurikulum & Materi" />
+                     <MenuRow id="SESSIONS" icon={Layers} label="Konfigurasi Sesi" />
+                     <MenuRow id="SCHEDULE" icon={Clock} label="Jadwal Kelas" />
                   </div>
                 )}
 
-                <form onSubmit={handleSaveProfile} className="space-y-6">
-                   <div>
-                      <label className="text-xs font-bold text-slate-400 uppercase block mb-2 tracking-wide">Ganti Nama</label>
-                      <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} className="glass-input w-full font-bold text-slate-800" />
-                   </div>
-                   <div>
-                      <label className="text-xs font-bold text-slate-400 uppercase block mb-2 tracking-wide">Upload Foto Baru</label>
-                      <input type="file" onChange={e => setPhotoFile(e.target.files ? e.target.files[0] : null)} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors" />
-                   </div>
-                   <button disabled={loading} className="px-8 py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 w-full md:w-auto">
-                      {loading ? "Menyimpan..." : "Simpan Perubahan"}
-                   </button>
-                </form>
+                <div className="bg-white rounded-xl shadow-sm p-4">
+                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Lainnya</h3>
+                   <MenuRow id="ABOUT" icon={AlertTriangle} label="Tentang E-Kursus" />
+                   <div className="my-2 border-t border-gray-100"></div>
+                   <MenuRow icon={LogOut} label="Keluar" />
+                </div>
+             </div>
+           )}
 
-                {/* DANGER ZONE: RESET DATABASE (Instruktur Only) */}
-                {user.role === 'INSTRUCTOR' && (
-                  <div className="mt-16 pt-8 border-t border-slate-100">
-                    <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
-                      <AlertTriangle className="text-red-500" />
-                      Zona Bahaya (Danger Zone)
-                    </h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      
-                      {/* CARD 1: RESET SYSTEM */}
-                      <div className="relative overflow-hidden p-6 rounded-3xl border border-red-100 bg-red-50/30 group hover:border-red-200 transition-all">
-                         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                            <BookOpen size={80} className="text-red-500 transform rotate-12" />
+           {/* CONTENT PANEL */}
+           {(!isMobile || mobileViewMode === 'CONTENT') && (
+             <div className="flex-1 bg-white rounded-xl shadow-sm min-h-[500px] w-full p-6 md:p-8">
+                
+                {/* 1. PROFILE */}
+                {activeTab === 'PROFILE' && (
+                   <div className="max-w-2xl animate-fade-in">
+                      <h2 className="text-2xl font-bold text-[#1c1e21] mb-6">Informasi Pribadi</h2>
+                      <div className="flex flex-col items-center mb-8">
+                         <div className="relative group">
+                            <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-gray-100 bg-gray-100">
+                               <img src={previewUrl || user.photoURL || ''} className="w-full h-full object-cover" alt="Profile" />
+                            </div>
+                            <label className="absolute bottom-2 right-2 w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center cursor-pointer hover:bg-gray-300 transition-colors shadow-md">
+                               <Camera size={20} className="text-black" />
+                               <input type="file" className="hidden" accept="image/*" onChange={e => {
+                                   if(e.target.files?.[0]) {
+                                      const file = e.target.files[0];
+                                      if (file.size > 5 * 1024 * 1024) {
+                                        alert("Maksimal 5MB!");
+                                        e.target.value = ""; // Reset input
+                                        return;
+                                      }
+                                      setPhotoFile(file);
+                                      setPreviewUrl(URL.createObjectURL(file));
+                                   }
+                               }} />
+                            </label>
                          </div>
-                         <h4 className="text-lg font-black text-slate-800 mb-2">Reset Sistem Akademik</h4>
-                         <p className="text-xs text-slate-500 mb-6 leading-relaxed min-h-[60px]">
-                            Menghapus seluruh <b>Jenis Kursus</b>, <b>Kurikulum</b>, dan <b>Konfigurasi Sesi</b>. 
-                            Status program siswa akan di-reset (un-enroll), tapi data siswa TETAP ADA.
-                         </p>
-                         <button 
-                           onClick={() => handleSecurityChallenge('RESET_SYSTEM')}
-                           className="w-full py-3 bg-white border-2 border-red-100 text-red-500 font-bold rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"
-                         >
-                           Reset Kursus & Kurikulum
-                         </button>
+                         <p className="mt-4 text-sm text-gray-500 font-medium">Ubah Foto Profil</p>
                       </div>
 
-                      {/* CARD 2: WIPE STUDENTS */}
-                      <div className="relative overflow-hidden p-6 rounded-3xl border border-red-100 bg-red-50/30 group hover:border-red-200 transition-all">
-                         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                            <User size={80} className="text-red-500 transform -rotate-12" />
+                      <form onSubmit={handleSaveProfile} className="space-y-6">
+                         <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Nama Tampilan</label>
+                            <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} className="w-full bg-transparent font-bold text-lg text-[#1c1e21] outline-none border-b-2 border-transparent focus:border-[#1877f2] transition-all" />
                          </div>
-                         <h4 className="text-lg font-black text-slate-800 mb-2">Hapus Semua Peserta</h4>
-                         <p className="text-xs text-slate-500 mb-6 leading-relaxed min-h-[60px]">
-                            Menghapus <b>SEMUA DATA SISWA</b> dari tabel peserta.
-                            <br/><span className="text-red-500 font-bold">PERINGATAN:</span> Daftar siswa akan menjadi kosong melompong. Akun login mereka tidak terhapus.
-                         </p>
-                         <button 
-                           onClick={() => handleSecurityChallenge('WIPE_STUDENTS')}
-                           className="w-full py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all shadow-red-200"
-                         >
-                           MUSNAHKAN DATA PESERTA
+
+                         {user.role === 'INSTRUCTOR' && (
+                            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                               <div className="flex items-center gap-2 mb-2 text-blue-800 font-bold text-sm"><Shield size={16} /> Otoritas Instruktur</div>
+                               <div className="flex flex-wrap gap-2">
+                                  {(user.authorizedPrograms || ['Guest']).map((p:string, i:number) => (
+                                     <span key={i} className="bg-white text-blue-600 px-3 py-1 rounded-full text-xs font-bold border border-blue-100 shadow-sm">{p}</span>
+                                  ))}
+                               </div>
+                            </div>
+                         )}
+
+                         <button disabled={loading} className="w-full bg-[#1877f2] text-white py-3 rounded-lg font-bold hover:bg-[#166fe5] shadow-lg shadow-blue-100 transition-all flex items-center justify-center gap-2">
+                            {loading ? 'Menyimpan...' : <><Save size={18} /> Simpan Perubahan</>}
                          </button>
-                      </div>
+                      </form>
 
-                    </div>
-
-                    {/* DEV TOOLS */}
-                    <div className="mt-8 text-center opacity-50 hover:opacity-100 transition-opacity">
-                        <button onClick={handleSeedExam} className="text-[10px] font-mono text-blue-600 border border-blue-200 px-3 py-1 rounded hover:bg-blue-50">
-                            [DEV ONLY] Generate Dummy Exam Data (Microsoft Office)
-                        </button>
-                    </div>
-
-                  </div>
+                      {user.role === 'INSTRUCTOR' && (
+                         <div className="mt-12 pt-8 border-t border-gray-100">
+                            <h3 className="text-sm font-bold text-red-500 uppercase tracking-widest mb-4 flex items-center gap-2"><AlertTriangle size={16}/> Zona Keamanan Master</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                               <button onClick={() => handleSecurityChallenge('RESET_SYSTEM')} className="p-4 text-left border border-red-100 rounded-xl bg-red-50 hover:bg-red-500 hover:text-white transition-all group">
+                                  <div className="font-bold">Reset Sistem</div>
+                                  <div className="text-[10px] opacity-70">Hapus Kursus & Kurikulum</div>
+                               </button>
+                               <button onClick={() => handleSecurityChallenge('WIPE_STUDENTS')} className="p-4 text-left border border-red-200 rounded-xl bg-red-600 text-white hover:bg-red-700 transition-all">
+                                  <div className="font-bold">Musnahkan Data Siswa</div>
+                                  <div className="text-[10px] opacity-70">Kosongkan Database Peserta</div>
+                               </button>
+                            </div>
+                            <div className="mt-6 text-center"><button onClick={handleSeedExam} className="text-xs text-blue-500 hover:underline font-bold">[DEV] Seed Exam Data</button></div>
+                         </div>
+                      )}
+                   </div>
                 )}
-              </div>
-            )}
 
-            {/* 2. COURSES TAB */}
-            {activeTab === 'COURSES' && (
-              <div className="animate-fade-in">
-                 <h2 className="text-2xl font-black text-slate-800 mb-2">Jenis Kursus</h2>
-                 <p className="text-slate-500 text-sm mb-8">Tambah program studi baru yang tersedia di LP3I.</p>
-                 
-                 <div className="flex gap-2 mb-8">
-                    <input id="newCourseInput" type="text" placeholder="Nama Kursus (cth: Web Design)" className="glass-input flex-1 font-bold" />
-                    <button 
-                      onClick={() => {
-                        const input = document.getElementById('newCourseInput') as HTMLInputElement;
-                        if (input.value) { handleAddCourse(input.value); input.value = ''; }
-                      }}
-                      className="px-6 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg"
-                    >
-                      TAMBAH
-                    </button>
-                 </div>
-
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {courses.map(c => (
-                       <div key={c.id} className="flex justify-between items-center p-5 bg-white/50 rounded-2xl border border-white/60 group hover:border-blue-200 transition-all shadow-sm">
-                          <span className="font-bold text-slate-700">{c.name}</span>
-                          <button onClick={() => handleDeleteCourse(c.id)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
-                       </div>
-                    ))}
-                 </div>
-              </div>
-            )}
-
-            {/* 3. CURRICULUM EDITOR (BARU & CANGGIH) */}
-            {activeTab === 'CURRICULUM' && (
-               <div className="animate-fade-in max-w-2xl">
-                  <div className="flex justify-between items-center mb-6">
-                     <h2 className="text-2xl font-black text-slate-800">Editor Kurikulum</h2>
-                     <button onClick={saveCurriculum} className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg font-bold hover:bg-emerald-600 shadow-md">
-                        <Save size={16} /> Simpan
-                     </button>
-                  </div>
-
-                  {/* Selector */}
-                  <div className="grid grid-cols-2 gap-4 mb-8">
-                     <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Pilih Kursus</label>
-                        <select 
-                          className="glass-input w-full font-bold text-slate-700"
-                          value={selectedCourseId}
-                          onChange={e => setSelectedCourseId(e.target.value)}
-                        >
-                           <option value="">-- Pilih --</option>
-                           {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                     </div>
-                     <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Pilih Level</label>
-                        <div className="flex bg-slate-100 p-1 rounded-xl">
-                           {[1, 2, 3].map(lvl => (
-                              <button 
-                                key={lvl}
-                                onClick={() => setSelectedLevel(lvl)}
-                                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${selectedLevel === lvl ? 'bg-white shadow text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
-                              >
-                                 Level {lvl}
-                              </button>
-                           ))}
-                        </div>
-                     </div>
-                  </div>
-
-                  {/* List Materi */}
-                  {selectedCourseId ? (
-                     <div className="bg-slate-50/50 rounded-3xl p-6 border border-slate-100/50">
-                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
-                           <ListOrdered size={18} className="text-blue-500" />
-                           Daftar Materi (Level {selectedLevel})
-                        </h3>
-                        
-                        <div className="space-y-2 mb-4">
-                           {modules.map((mod, idx) => (
-                              <div key={idx} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-white/60 shadow-sm">
-                                 <span className="w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold">{idx + 1}</span>
-                                 <span className="flex-1 text-sm font-medium text-slate-700">{mod}</span>
-                                 <button onClick={() => removeModule(idx)} className="text-slate-300 hover:text-red-500"><Trash2 size={16} /></button>
-                              </div>
-                           ))}
-                           {modules.length === 0 && <p className="text-center text-slate-400 text-sm py-4 italic">Belum ada materi.</p>}
-                        </div>
-
-                        <div className="flex gap-2">
-                           <input 
-                             type="text" 
-                             className="glass-input flex-1 text-sm"
-                             placeholder="Tambah materi baru..."
-                             value={newModule}
-                             onChange={e => setNewModule(e.target.value)}
-                             onKeyDown={e => e.key === 'Enter' && handleAddModule()}
-                           />
-                           <button onClick={handleAddModule} className="p-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700"><Plus size={20} /></button>
-                        </div>
-                     </div>
-                  ) : (
-                     <div className="text-center py-10 text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
-                        Pilih kursus terlebih dahulu.
-                     </div>
-                  )}
-               </div>
-            )}
-
-            {/* 4. SESSIONS CONFIG */}
-            {activeTab === 'SESSIONS' && (
-               <div className="animate-fade-in max-w-xl">
-                  <h2 className="text-2xl font-black text-slate-800 mb-6">Konfigurasi Sesi</h2>
-                  
-                  {selectedCourseId ? (
-                     <div className="bg-slate-50/50 p-8 rounded-[2.5rem] text-center border border-slate-100">
-                        <div className="mb-6">
-                           <GraduationCap size={48} className="mx-auto text-blue-200 mb-4" />
-                           <h3 className="text-lg font-bold text-slate-700">Atur Total Pertemuan</h3>
-                           <p className="text-sm text-slate-500">Berapa kali pertemuan untuk menyelesaikan Level {selectedLevel}?</p>
-                        </div>
-
-                        <div className="flex items-center justify-center gap-6 mb-8">
-                           <button onClick={() => setSessionCount(c => Math.max(1, c - 1))} className="w-12 h-12 rounded-full bg-white shadow hover:bg-slate-100 font-bold text-xl">-</button>
-                           <div className="text-5xl font-black text-slate-800">{sessionCount}</div>
-                           <button onClick={() => setSessionCount(c => c + 1)} className="w-12 h-12 rounded-full bg-white shadow hover:bg-slate-100 font-bold text-xl">+</button>
-                        </div>
-
-                        <button onClick={saveSessionConfig} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition-all">
-                           SIMPAN PENGATURAN
-                        </button>
-                     </div>
-                  ) : (
-                     <div className="text-center py-10 text-slate-400">Silakan kembali ke menu Kurikulum dan pilih kursus dulu.</div>
-                  )}
-               </div>
-            )}
-
-            {/* 5. SCHEDULE MANAGER */}
-            {activeTab === 'SCHEDULE' && (
-               <div className="animate-fade-in">
-                  <ScheduleManager />
-               </div>
-            )}
-
-            {/* 6. ABOUT TAB */}
-            {activeTab === 'ABOUT' && (
-              <div className="max-w-4xl mx-auto py-10 animate-fade-in">
-                {/* Header Section */}
-                <div className="text-center mb-12">
-                  <div className="w-20 h-20 bg-gradient-to-tr from-blue-600 to-blue-400 rounded-3xl mx-auto flex items-center justify-center text-white shadow-2xl mb-6 rotate-12 transition-transform hover:rotate-0 duration-500">
-                    <BookOpen size={40} />
-                  </div>
-                  <h2 className="text-4xl font-black text-slate-800 tracking-tighter">E-KURSUS</h2>
-                  <p className="text-blue-600 font-bold tracking-[0.3em] text-[10px] mt-2 uppercase">Platform v1.5 Professional</p>
-                </div>
-
-                {/* Developer Message Section */}
-                <div className="relative bg-white rounded-[2.5rem] md:rounded-[3rem] shadow-2xl shadow-blue-100 border border-slate-100 overflow-hidden flex flex-col md:flex-row-reverse mb-12">
-                   <div className="w-full md:w-2/5 relative h-64 md:h-auto overflow-hidden">
-                      <img src={aboutImg} className="w-full h-full object-cover object-top md:object-cover scale-105 hover:scale-110 transition-transform duration-1000" alt="Developer Model" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent md:bg-gradient-to-l md:from-transparent md:via-transparent md:to-white"></div>
-                   </div>
-
-                   <div className="w-full md:w-3/5 p-8 md:p-12 flex flex-col justify-center relative">
-                      <Quote className="absolute top-4 right-6 md:top-8 md:right-10 text-slate-100 opacity-50 w-16 h-16 md:w-24 md:h-24" />
-                      
-                      <div className="relative z-10">
-                        <h3 className="text-[10px] md:text-xs font-black text-blue-600 uppercase tracking-[0.2em] mb-3 md:mb-4">Pesan Dari Pengembang</h3>
-                        <p className="font-serif text-lg md:text-2xl text-slate-700 leading-relaxed italic">
-                          "E-Kursus lahir dari sebuah visi untuk mendigitalisasi setiap capaian belajar dengan presisi tinggi. Meski masih dalam tahap awal pengembangan, sistem ini dibangun dengan dedikasi penuh untuk memberikan standar akademik terbaik bagi institusi."
-                        </p>
-                        
-                        <div className="mt-6 md:mt-8 flex items-center gap-4">
-                           <div className="h-[1px] w-8 md:w-12 bg-blue-600"></div>
-                           <span className="font-sans font-bold text-slate-800 text-[10px] md:text-sm tracking-widest uppercase">Ahdi Yourse & Dev Team</span>
-                        </div>
+                {/* 2. COURSES */}
+                {activeTab === 'COURSES' && (
+                   <div className="animate-fade-in">
+                      <h2 className="text-2xl font-bold text-[#1c1e21] mb-6">Kelola Kursus</h2>
+                      <div className="flex gap-2 mb-6">
+                         <input id="courseInput" type="text" placeholder="Nama Program..." className="flex-1 bg-gray-100 px-4 py-3 rounded-lg outline-none focus:ring-2 focus:ring-[#1877f2]" />
+                         <button onClick={() => { const el = document.getElementById('courseInput') as HTMLInputElement; if(el.value) { handleAddCourse(el.value); el.value=''; } }} className="bg-[#1877f2] text-white px-6 rounded-lg font-bold flex items-center gap-2"><Plus size={18}/> Tambah</button>
+                      </div>
+                      <div className="space-y-2">
+                         {courses.map(c => (
+                            <div key={c.id} className="flex justify-between items-center p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors">
+                               <span className="font-bold text-gray-700">{c.name}</span>
+                               <button onClick={() => handleDeleteCourse(c.id)} className="text-gray-300 hover:text-red-500 p-2"><Trash2 size={18}/></button>
+                            </div>
+                         ))}
                       </div>
                    </div>
+                )}
+
+                {/* 3. CURRICULUM */}
+                {activeTab === 'CURRICULUM' && (
+                   <div className="animate-fade-in">
+                      <div className="flex justify-between items-center mb-6">
+                         <h2 className="text-2xl font-bold text-[#1c1e21]">Editor Kurikulum</h2>
+                         <button onClick={saveCurriculum} className="bg-[#1877f2] text-white px-6 py-2 rounded-lg font-bold shadow-md hover:bg-[#166fe5] flex items-center gap-2"><Save size={18}/> Simpan</button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 mb-6">
+                         <select className="bg-gray-100 p-3 rounded-lg font-bold text-gray-700 outline-none" value={selectedCourseId} onChange={e => setSelectedCourseId(e.target.value)}>
+                            <option value="">Pilih Program</option>
+                            {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                         </select>
+                         <div className="flex bg-gray-100 p-1 rounded-lg">
+                            {[1,2,3].map(l => <button key={l} onClick={() => setSelectedLevel(l)} className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${selectedLevel === l ? 'bg-white shadow text-[#1877f2]' : 'text-gray-400'}`}>Lvl {l}</button>)}
+                         </div>
+                      </div>
+                      {selectedCourseId ? (
+                         <div className="border border-gray-200 rounded-xl p-4 bg-slate-50/50">
+                            {modules.map((m, i) => (
+                               <div key={i} className="flex items-center gap-3 py-3 border-b border-gray-200 last:border-0">
+                                  <div className="w-6 h-6 bg-blue-100 text-[#1877f2] rounded-full flex items-center justify-center text-xs font-bold">{i+1}</div>
+                                  <div className="flex-1 font-medium text-gray-700">{m}</div>
+                                  <button onClick={() => removeModule(i)} className="text-gray-300 hover:text-red-500"><Trash2 size={16}/></button>
+                               </div>
+                            ))}
+                            <div className="flex gap-2 mt-4">
+                               <input type="text" placeholder="Ketik materi..." className="flex-1 bg-white px-4 py-2 rounded-lg border border-gray-200 outline-none" value={newModule} onChange={e => setNewModule(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddModule()} />
+                               <button onClick={handleAddModule} className="bg-gray-800 text-white px-4 rounded-lg"><Plus size={20}/></button>
+                            </div>
+                         </div>
+                      ) : <div className="text-center py-10 text-gray-400 font-medium">Silakan pilih kursus untuk mengedit materi.</div>}
+                   </div>
+                )}
+
+                {/* 4. SESSIONS */}
+                {activeTab === 'SESSIONS' && (
+                   <div className="text-center py-10 animate-fade-in">
+                      <h2 className="text-2xl font-bold text-[#1c1e21] mb-8">Konfigurasi Pertemuan</h2>
+                      {selectedCourseId ? (
+                         <div className="inline-block p-10 bg-white border border-gray-100 rounded-3xl shadow-xl shadow-gray-100 w-full max-w-sm">
+                            <h3 className="text-sm font-bold text-gray-400 uppercase mb-4">Total Sesi Level {selectedLevel}</h3>
+                            <div className="text-7xl font-black text-[#1c1e21] mb-8">{sessionCount}</div>
+                            <div className="flex justify-center gap-6 mb-8">
+                               <button onClick={() => setSessionCount(c => Math.max(1, c-1))} className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center text-2xl font-bold">-</button>
+                               <button onClick={() => setSessionCount(c => c+1)} className="w-14 h-14 rounded-full bg-slate-800 text-white flex items-center justify-center text-2xl font-bold">+</button>
+                            </div>
+                            <button onClick={saveSessionConfig} className="w-full py-4 bg-[#1877f2] text-white rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-[#166fe5]">Simpan Konfigurasi</button>
+                         </div>
+                      ) : <div className="text-gray-400 font-bold">Pilih kursus di menu Kurikulum terlebih dahulu.</div>}
                 </div>
+                )}
 
-                {/* System Specs Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-4">
-                  <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100">
-                    <h4 className="font-bold text-slate-800 mb-2">Misi Utama</h4>
-                    <p className="text-sm text-slate-500 leading-relaxed">
-                      Mengintegrasikan pemantauan kehadiran, penilaian praktikum, dan pelaporan capaian belajar secara real-time untuk LP3I College Indramayu.
-                    </p>
-                  </div>
+                {/* 5. SCHEDULE */}
+                {activeTab === 'SCHEDULE' && <ScheduleManager />}
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm group hover:border-blue-200 transition-all">
-                      <TrendingUp className="text-blue-500 mb-2 group-hover:scale-110 transition-transform" size={24} />
-                      <h5 className="font-bold text-xs text-slate-800 uppercase">Analisis Data</h5>
-                      <p className="text-[10px] text-slate-400 mt-1 leading-tight">Visualisasi performa dengan 10+ diagram interaktif.</p>
-                    </div>
-                    <div className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm group hover:border-orange-200 transition-all">
-                      <Award className="text-orange-500 mb-2 group-hover:scale-110 transition-transform" size={24} />
-                      <h5 className="font-bold text-xs text-slate-800 uppercase">Sertifikasi</h5>
-                      <p className="text-[10px] text-slate-400 mt-1 leading-tight">Generate sertifikat otomatis berstandar formal.</p>
-                    </div>
-                  </div>
-                </div>
+                {/* 6. ABOUT */}
+                {activeTab === 'ABOUT' && (
+                   <div className="max-w-4xl mx-auto py-10 animate-fade-in text-center">
+                      <div className="w-20 h-20 bg-[#1877f2] rounded-2xl mx-auto mb-6 flex items-center justify-center text-white shadow-xl rotate-3"><BookOpen size={40} /></div>
+                      <h2 className="text-3xl font-black text-[#1c1e21]">E-KURSUS</h2>
+                      <p className="text-gray-400 font-bold tracking-widest text-xs mt-2 uppercase">Professional Education System</p>
+                      
+                      <div className="mt-10 relative rounded-[3rem] overflow-hidden border border-gray-100 bg-white shadow-xl shadow-gray-200/50 flex flex-col md:flex-row-reverse">
+                         {/* Gambar di sebelah kanan pada Desktop */}
+                         <div className="w-full md:w-1/2 h-72 md:h-auto relative">
+                            <img src={aboutImg} className="w-full h-full object-cover" alt="LP3I" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-white/20 to-transparent"></div>
+                         </div>
+                         
+                         {/* Teks di sebelah kiri pada Desktop */}
+                         <div className="w-full md:w-1/2 p-8 md:p-14 flex flex-col justify-center text-left bg-gradient-to-br from-white to-gray-50">
+                            <Quote className="text-[#1877f2] opacity-10 mb-6" size={64} />
+                            <p className="text-gray-700 italic text-xl md:text-2xl leading-relaxed font-serif relative z-10">
+                               "Sistem ini dibangun untuk memberikan pengalaman akademik yang transparan, aman, dan berstandar internasional bagi seluruh sivitas LP3I Indramayu."
+                            </p>
+                            <div className="mt-8 flex items-center gap-4">
+                               <div className="h-[2px] w-12 bg-[#1877f2]"></div>
+                               <span className="font-bold text-[#1c1e21] uppercase tracking-widest text-sm">Ahdi Yourse & Dev Team</span>
+                            </div>
+                         </div>
+                      </div>
 
-                <div className="mt-16 pt-8 border-t border-slate-100 flex flex-wrap justify-center gap-8 text-slate-300">
-                   <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"><CheckCircle2 size={14} className="text-blue-500" /> Cloud Sync</div>
-                   <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"><CheckCircle2 size={14} className="text-blue-500" /> Real-time DB</div>
-                   <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"><CheckCircle2 size={14} className="text-blue-500" /> Data Secure</div>
-                </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-10 px-4">
+                         {[
+                           { icon: CheckCircle2, label: 'Cloud Sync', color: 'text-emerald-500' },
+                           { icon: Shield, label: 'Secure', color: 'text-blue-500' },
+                           { icon: TrendingUp, label: 'Analytics', color: 'text-purple-500' },
+                           { icon: Award, label: 'Certified', color: 'text-orange-500' }
+                         ].map((item, idx) => (
+                           <div key={idx} className="p-4 bg-white rounded-2xl border border-gray-100 flex flex-col items-center gap-2 shadow-sm">
+                              <item.icon className={item.color} size={20} />
+                              <span className="text-[10px] font-black uppercase text-gray-500">{item.label}</span>
+                           </div>
+                         ))}
+                      </div>
+                   </div>
+                )}
 
-                <div className="text-center mt-12">
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.5em]">Dedicated to LP3I College Indramayu</p>
-                </div>
-              </div>
-            )}
+             </div>
+           )}
 
-          </div>
         </div>
       </div>
 
-      {/* SECURITY MODAL OVERLAY */}
+      {/* SECURITY MODAL */}
       {showSecurityModal && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in">
-           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform scale-100 transition-transform">
-              <div className="bg-red-600 px-8 py-6 text-white text-center relative overflow-hidden">
-                 <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
-                 <AlertTriangle size={48} className="mx-auto mb-3 text-red-200" />
-                 <h2 className="text-2xl font-black uppercase tracking-tight">Akses Terkunci</h2>
-                 <p className="text-red-100 text-xs font-bold uppercase tracking-widest mt-1">Otorisasi Tingkat Tinggi Diperlukan</p>
-              </div>
-              
-              <div className="p-8">
-                 <p className="text-center text-slate-600 font-medium mb-6 leading-relaxed text-sm">
-                   Fitur ini dilindungi untuk mencegah kehilangan data fatal. Silakan hubungi <b>Super Admin</b> untuk mendapatkan Kode Otorisasi.
-                 </p>
-                 
-                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center mb-6">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Hubungi via WhatsApp</p>
-                    <p className="text-xl font-black text-slate-800">0838-6705-5809</p>
-                 </div>
-
-                 <div className="space-y-4">
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Masukkan Kode Master</label>
-                      <input 
-                        type="password" 
-                        autoFocus
-                        value={securityInput}
-                        onChange={e => setSecurityInput(e.target.value)}
-                        placeholder="••••••••••••••"
-                        className="w-full text-center text-lg font-black tracking-widest p-3 border-2 border-slate-200 rounded-xl focus:border-red-500 focus:ring-4 focus:ring-red-500/10 outline-none transition-all uppercase"
-                      />
-                    </div>
-                    
-                    <button 
-                      onClick={executeSecureAction}
-                      className="w-full py-4 bg-red-600 text-white font-bold rounded-xl shadow-lg shadow-red-200 hover:bg-red-700 hover:shadow-xl transition-all"
-                    >
-                       BUKA KUNCI & EKSEKUSI
-                    </button>
-                    
-                    <button 
-                      onClick={() => setShowSecurityModal(false)}
-                      className="w-full py-3 text-slate-400 font-bold hover:text-slate-600 transition-colors text-sm"
-                    >
-                       Batalkan
-                    </button>
-                 </div>
-              </div>
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 text-center">
+              <div className="w-14 h-14 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4"><AlertTriangle size={28} /></div>
+              <h3 className="font-bold text-xl text-gray-800 mb-2">Konfirmasi Master</h3>
+              <p className="text-gray-500 text-sm mb-6">Tindakan ini permanen. Masukkan kode otorisasi super admin.</p>
+              <input type="password" value={securityInput} onChange={e => setSecurityInput(e.target.value)} placeholder="KODE MASTER" className="w-full text-center p-4 bg-gray-50 border-2 border-gray-200 rounded-xl mb-4 font-black tracking-widest outline-none focus:border-red-500 transition-all uppercase" />
+              <button onClick={executeSecureAction} className="w-full py-4 bg-red-600 text-white font-bold rounded-xl shadow-lg shadow-red-100 hover:bg-red-700 transition-all">EKSEKUSI PERINTAH</button>
+              <button onClick={() => setShowSecurityModal(false)} className="w-full py-3 text-gray-400 font-bold hover:text-gray-600 mt-2">Batalkan</button>
            </div>
         </div>
       )}
-
     </div>
   );
 };

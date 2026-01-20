@@ -16,6 +16,7 @@ import Login from './pages/Login';
 import CareerSimulator from './pages/CareerSimulator';
 import Classmates from './pages/Classmates';
 import ExamRoom from './pages/ExamRoom';
+import NotFound from './pages/NotFound'; // Import 404
 
 // --- ERROR BOUNDARY ---
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean, error: Error | null }> {
@@ -153,6 +154,9 @@ function AppRoutes() {
             <PageTransition><ExamRoom /></PageTransition>
           </ProtectedRoute>
         } />
+
+        {/* 404 CATCH ALL */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
       <Toaster position="top-center" reverseOrder={false} toastOptions={{ duration: 4000, style: { background: '#333', color: '#fff' } }} />
     </AnimatePresence>

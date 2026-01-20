@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { 
   Users, BookOpen, FileText, Award, ChevronRight, Clock, 
   CheckCircle2, PlayCircle, Folder, Lock, ArrowLeft,
@@ -332,7 +331,7 @@ const Classmates: React.FC = () => {
                  <div className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-3xl mx-auto flex items-center justify-center text-white shadow-xl shadow-orange-200 mb-8 animate-pulse rotate-3">
                     <Award size={48} />
                  </div>
-                 <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">UJIAN AKHIR KURSUS</h2>
+                 <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Ujian Akhir Kursus</h2>
                  <p className="text-slate-500 max-w-lg mx-auto text-sm leading-relaxed mb-10 font-medium">
                    Ujian kompetensi menyeluruh sebagai syarat kelulusan dan pengambilan sertifikat. Pastikan Anda telah menyelesaikan seluruh modul prasyarat.
                  </p>
@@ -357,7 +356,7 @@ const Classmates: React.FC = () => {
 
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto mb-10">
                     <div className="p-5 bg-white/80 rounded-2xl border border-yellow-100 shadow-sm backdrop-blur-sm">
-                       <div className="text-3xl font-black text-slate-800">90</div>
+                       <div className="text-3xl font-black text-slate-800">180</div>
                        <div className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mt-1">Menit Durasi</div>
                     </div>
                     <div className="p-5 bg-white/80 rounded-2xl border border-yellow-100 shadow-sm backdrop-blur-sm">
@@ -388,10 +387,15 @@ const Classmates: React.FC = () => {
                  ) : (
                    <div className="text-center">
                      {isExamOpen ? (
-                        <Link to="/exam" className="inline-flex items-center justify-center gap-3 px-12 py-4 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-2xl font-bold shadow-xl shadow-orange-500/30 hover:scale-105 transition-transform animate-pulse">
+                        <a 
+                          href="#/exam" 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="inline-flex items-center justify-center gap-3 px-12 py-4 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-2xl font-bold shadow-xl shadow-orange-500/30 hover:scale-105 transition-transform animate-pulse"
+                        >
                            <PlayCircle size={24} />
                            MULAI UJIAN SEKARANG
-                        </Link>
+                        </a>
                      ) : (
                         <button disabled className="inline-flex items-center justify-center gap-3 px-12 py-4 bg-slate-200 text-slate-400 rounded-2xl font-bold cursor-not-allowed">
                            <Lock size={20} />
@@ -482,7 +486,7 @@ const Classmates: React.FC = () => {
                     <span className="hidden md:inline">
                       {tab === 'STUDENTS' ? 'Peserta' : 
                        tab === 'MODULES' ? 'Modul' : 
-                       tab === 'QUIZZES' ? 'Ujian' : 'UJIKOM'}
+                       tab === 'QUIZZES' ? 'Ujian' : 'Ujikom'}
                     </span>
                   </button>
                 ))}
