@@ -1,43 +1,83 @@
 import type { Question } from '../../types/exam';
 
-// --- 5 SOAL ESSAY PRAKTIKUM (REVISI FINAL) ---
+// --- 5 SOAL ESSAY PRAKTIKUM (REVISI FINAL + VISUAL) ---
 export const ESSAY_QUESTIONS: Question[] = [
   {
     id: "ESSAY-EXCEL-BASIC",
-    text: "PRAKTIK EXCEL 1 (DASAR): Buatlah 'Laporan Gaji Karyawan' untuk 10 orang. Gunakan rumus SUM untuk total gaji, AVERAGE untuk rata-rata, MAX/MIN untuk gaji tertinggi/terendah, COUNT untuk jumlah karyawan, dan fungsi IF untuk menentukan Bonus (Jika Masa Kerja > 5 Tahun, Bonus Rp 500.000, jika tidak 0). Upload file Excel (.xlsx).",
+    text: "PRAKTIK EXCEL 1 (DASAR): Perhatikan tabel data gaji di bawah ini. Ketik ulang di Excel, lalu hitung kolom kosong (Gaji Bersih, Total, Rata-rata) menggunakan rumus yang tepat. Ketentuan: Bonus diberikan Rp 500.000 jika Masa Kerja > 5 Tahun.",
     type: "ESSAY",
+    spreadsheetData: [
+      ["NO", "NAMA PEGAWAI", "MASA KERJA", "GAJI POKOK", "BONUS (IF)", "GAJI BERSIH"],
+      ["1", "Andi Saputra", "3 Tahun", "Rp 4.500.000", "?", "?"],
+      ["2", "Budi Santoso", "6 Tahun", "Rp 5.200.000", "?", "?"],
+      ["3", "Citra Kirana", "2 Tahun", "Rp 4.000.000", "?", "?"],
+      ["4", "Dewi Lestari", "8 Tahun", "Rp 6.000.000", "?", "?"],
+      ["-", "TOTAL GAJI", "", "", "", "(Pakai SUM)"],
+      ["-", "RATA-RATA", "", "", "", "(Pakai AVERAGE)"]
+    ],
     options: [],
     correctIndex: 0,
     points: 100
   },
   {
     id: "ESSAY-EXCEL-ADV",
-    text: "PRAKTIK EXCEL 2 (LANJUTAN): Anda memiliki data penjualan mentah. 1. Gunakan VLOOKUP untuk mengisi Nama Barang berdasarkan Kode. 2. Gunakan HLOOKUP untuk mengisi Diskon berdasarkan Kategori. 3. Buatlah PIVOT TABLE yang merangkum Total Penjualan per Wilayah. Upload file Excel (.xlsx).",
+    text: "PRAKTIK EXCEL 2 (LANJUTAN): Gunakan tabel referensi dan data transaksi berikut untuk mengisi Nama Barang (VLOOKUP) dan Diskon (HLOOKUP). Buatlah Pivot Table sederhana dari hasil akhirnya.",
     type: "ESSAY",
+    spreadsheetData: [
+      ["KODE", "NAMA BARANG", "JUMLAH", "HARGA SATUAN", "DISKON", "TOTAL BAYAR"],
+      ["A-001", "(VLOOKUP)", "10", "Rp 50.000", "(HLOOKUP)", "?"],
+      ["B-002", "(VLOOKUP)", "5", "Rp 75.000", "(HLOOKUP)", "?"],
+      ["A-003", "(VLOOKUP)", "8", "Rp 50.000", "(HLOOKUP)", "?"],
+      ["", "", "", "", "", ""],
+      ["REF TABEL:", "A=Kertas, B=Tinta", "", "A=5%, B=10%", "", ""]
+    ],
     options: [],
     correctIndex: 0,
     points: 100
   },
   {
     id: "ESSAY-WORD-LETTER",
-    text: "PRAKTIK WORD 1 (SURAT): Buatlah Surat Penawaran Kerjasama Resmi dari 'PT. AHDI KREATIF INDONESIA' yang ditujukan kepada Pimpinan 'PT. MITRA JAYA ABADI'. Isinya menawarkan jasa Digital Marketing. Perhatikan format tanggal, nomor surat, dan tata bahasa baku. Upload file Word (.docx).",
+    text: "PRAKTIK WORD 1 (SURAT RESMI): Buatlah surat penawaran dengan kerangka format berikut. Perhatikan kerapian indentasi, margin, dan penggunaan font resmi (Times New Roman/Arial).",
     type: "ESSAY",
+    spreadsheetData: [
+      ["BAGIAN", "ISI KONTEN"],
+      ["Kop Surat", "Logo (Shape), Nama PT, Alamat, Garis Bawah"],
+      ["Tanggal & No", "Indramayu, [Tgl Hari Ini] | No: 001/MKT/I/2026"],
+      ["Tujuan", "Yth. Pimpinan PT. Mitra Jaya Abadi"],
+      ["Isi", "Paragraf 1: Perkenalan\nParagraf 2: Penawaran Jasa\nParagraf 3: Harga & Paket"],
+      ["Penutup", "Hormat Kami, [Nama Anda]"]
+    ],
     options: [],
     correctIndex: 0,
     points: 100
   },
   {
     id: "ESSAY-WORD-KOP",
-    text: "PRAKTIK WORD 2 (DESAIN): Buatlah KOP SURAT (Letterhead) resmi untuk perusahaan imajiner Anda. Gunakan fitur Shapes/Drawing untuk membuat Logo sederhana di pojok kiri, tambahkan alamat lengkap, email, dan garis pemisah (border) yang rapi di bagian Header dokumen. Upload file Word (.docx).",
+    text: "PRAKTIK WORD 2 (DESAIN KOP): Desainlah Kop Surat yang menarik menggunakan fitur SHAPES. Buat logo perusahaan imajiner Anda sendiri dari gabungan bentuk dasar (Lingkaran/Kotak).",
     type: "ESSAY",
+    spreadsheetData: [
+      ["ELEMEN WAJIB", "DESKRIPSI"],
+      ["Logo Perusahaan", "Wajib dibuat sendiri pakai Menu Insert > Shapes"],
+      ["Nama & Slogan", "Gunakan WordArt atau Font yang Estetik"],
+      ["Kontak Info", "Tambahkan Ikon Telepon/Email kecil"],
+      ["Watermark", "Tambahkan Logo transparan di tengah halaman"]
+    ],
     options: [],
     correctIndex: 0,
     points: 100
   },
   {
     id: "ESSAY-PPT",
-    text: "PRAKTIK POWERPOINT: Buatlah slide presentasi 'Company Profile' (Profil Perusahaan) minimal 5 slide. Slide 1: Judul Menarik. Slide 2: Tentang Kami. Slide 3: Layanan. Slide 4: Tim Kami. Slide 5: Kontak. Wajib gunakan Transisi antar slide dan Animasi pada teks/gambar. Upload file PowerPoint (.pptx).",
+    text: "PRAKTIK POWERPOINT: Buatlah slide presentasi 'Company Profile' (Profil Perusahaan) minimal 5 slide dengan struktur berikut. Wajib gunakan Transisi MORPH.",
     type: "ESSAY",
+    spreadsheetData: [
+      ["SLIDE KE-", "KONTEN"],
+      ["Slide 1", "JUDUL BESAR & Foto Latar Belakang (Cover)"],
+      ["Slide 2", "Visi & Misi (Gunakan SmartArt List)"],
+      ["Slide 3", "Layanan Kami (3 Kolom dengan Ikon)"],
+      ["Slide 4", "Grafik Pertumbuhan (Chart Batang)"],
+      ["Slide 5", "Terima Kasih & Kontak (Link ke Sosmed)"]
+    ],
     options: [],
     correctIndex: 0,
     points: 100

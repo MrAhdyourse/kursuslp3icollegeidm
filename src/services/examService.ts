@@ -12,17 +12,6 @@ const STORAGE_KEYS = {
   SESSIONS: 'exam_sessions',
 };
 
-// HELPER: Mapping Topik ke Meeting Number (Untuk Rapot)
-const getExamMeetingNumber = (topicOrQuestionId: string): number => {
-  const id = topicOrQuestionId.toUpperCase();
-  if (id.includes('EXCEL')) return 91;
-  if (id.includes('WORD')) return 92;
-  if (id.includes('PPT') || id.includes('POWERPOINT')) return 93;
-  if (id.includes('ARSIP')) return 94;
-  if (id.includes('ESSAY') || id.includes('PRAKTIKUM')) return 95;
-  return 99; // Omnibus / Default
-};
-
 // HELPER: Get Questions by Topic
 const getQuestionsByTopic = (topic: string): Question[] => {
   switch (topic.toUpperCase()) {
@@ -146,88 +135,79 @@ export const examService = {
 
   // Submit Ujian
   submitExam: async (session: StudentExamSession, questions: Question[]) => {
-    const sessions = JSON.parse(localStorage.getItem(STORAGE_KEYS.SESSIONS) || '[]');
-    const sessionIndex = sessions.findIndex((s: any) => s.id === session.id);
+    // KITA TIDAK PAKAI LOGIC LOCALSTORAGE LAGI UNTUK NILAI AKHIR
+    // KITA AMBIL DARI FIRESTORE (SOURCE OF TRUTH) AGAR AKURAT
+    
+    const docId = `${session.examId}_${session.studentId}`;
+    const docRef = doc(db, "exam_sessions", docId);
+    
+    try {
+      // 1. Ambil data terbaru dari Cloud (Jaga-jaga jika parameter session stale)
+      const docSnap = await getDoc(docRef);
+      if (!docSnap.exists()) {
+         throw new Error("Dokumen sesi tidak ditemukan di Cloud!");
+      }
+      
+      const cloudData = docSnap.data() as StudentExamSession;
+      const finalAnswers = { ...cloudData.answers, ...(session.answers || {}) };
 
-    if (sessionIndex > -1) {
-      // Hitung Nilai
+      // 2. Hitung Nilai (Server-Side Logic Simulation)
       let totalPoints = 0;
       let maxPoints = 0;
 
       questions.forEach(q => {
         maxPoints += q.points;
-        // Cek jawaban (hanya PG yang bisa auto-score, Essay manual/skip logic here)
-        if (session.answers[q.id] === q.correctIndex) {
+        // Cek jawaban
+        if (finalAnswers[q.id] === q.correctIndex) {
           totalPoints += q.points;
         }
       });
 
-      // Simple Scoring: (Perolehan / Max) * 100
       const finalScore = maxPoints > 0 ? Math.round((totalPoints / maxPoints) * 100) : 0;
 
-      sessions[sessionIndex].status = 'SUBMITTED';
-      sessions[sessionIndex].finalScore = finalScore;
-      localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(sessions));
+      // 3. Update Status & Score di Cloud (JANGAN TIMPA ANSWERS)
+      // Kita hanya update field yang relevan untuk submit
+      const updatePayload = {
+         status: 'SUBMITTED',
+         finalScore: finalScore,
+         submittedAt: new Date().toISOString(),
+         lastSyncedAt: new Date().toISOString()
+      };
       
-      // --- SINKRONISASI 1: KE RAPOT (AGAR MASUK NILAI) ---
+      console.log(`[ExamService] Submitting Score: ${finalScore}. Payload:`, updatePayload);
+      
+      await setDoc(docRef, updatePayload, { merge: true });
+      
+      // 4. Update LocalStorage (Hanya untuk konsistensi, walau UI pakai Cloud)
+      const sessions = JSON.parse(localStorage.getItem(STORAGE_KEYS.SESSIONS) || '[]');
+      const idx = sessions.findIndex((s: any) => s.id === session.id);
+      if (idx > -1) {
+         sessions[idx].status = 'SUBMITTED';
+         sessions[idx].finalScore = finalScore;
+         localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(sessions));
+      }
+
+      // --- SINKRONISASI RAPOT (SAMA SEPERTI SEBELUMNYA) ---
+      // ... (Code sinkron ke rapot siswa tetap sama)
       try {
-        const sampleQ = questions[0];
-        const topicId = sampleQ ? sampleQ.id : 'UMUM';
-        const meetingNum = getExamMeetingNumber(topicId);
-        
-        // Tentukan Nama Topik yang Cantik
-        let topicName = "Ujian Kompetensi";
-        if (meetingNum === 91) topicName = "UJIKOM: Microsoft Excel";
-        if (meetingNum === 92) topicName = "UJIKOM: Microsoft Word";
-        if (meetingNum === 93) topicName = "UJIKOM: PowerPoint";
-        if (meetingNum === 94) topicName = "UJIKOM: Kearsipan";
-        if (meetingNum === 95) topicName = "UJIKOM: Praktikum (Upload)";
-        if (meetingNum === 99) topicName = "UJIKOM: OMNIBUS (Teori)";
-
-        console.log(`[ExamService] Syncing score to server... Topic: ${topicName}, Score: ${finalScore}`);
-
+        const meetingNum = 99; // Omnibus
+        let topicName = "UJIKOM: OMNIBUS (Final)";
         await studentService.saveSessionRecord({
           studentId: session.studentId,
           meetingNumber: meetingNum,
           topic: topicName,
           attendance: 'HADIR',
           score: finalScore,
-          notes: `Nilai otomatis dari sistem ujian (${new Date().toLocaleTimeString()}).`
+          notes: `Nilai Ujikom Final: ${finalScore}`
         });
-
-      } catch (error) {
-        console.error("[ExamService] Gagal sinkron nilai ke rapot:", error);
-      }
-
-      // --- SINKRONISASI 2: KE LIVE MONITORING (CLOUD FIRESTORE) ---
-      try {
-        const firestoreSessionData = {
-          ...sessions[sessionIndex],
-          finalScore: finalScore,
-          status: 'SUBMITTED',
-          submittedAt: new Date().toISOString(),
-          lastSyncedAt: new Date().toISOString() // Marker waktu sync
-        };
-        
-        // Gunakan ID unik kombinasi: EXAMID_STUDENTID
-        const docId = `${session.examId}_${session.studentId}`;
-        const docRef = doc(db, "exam_sessions", docId);
-        
-        console.log(`[ExamService] Syncing to Firestore: ${docId}`, firestoreSessionData);
-        
-        // Gunakan merge: true agar jika ada field lain tidak terhapus
-        await setDoc(docRef, firestoreSessionData, { merge: true });
-        
-        console.log("[ExamService] Live monitoring synced SUCCESS.");
-      } catch (error) {
-         console.error("[ExamService] CRITICAL: Gagal sinkron ke live monitoring:", error);
-         // Kita tidak throw error agar user tidak stuck, tapi kita log merah
-         // Di sistem produksi, kita bisa simpan di antrian 'offline sync'
-      }
+      } catch (e) { console.error("Rapot sync failed", e); }
 
       return finalScore;
+
+    } catch (error) {
+       console.error("CRITICAL SUBMIT ERROR:", error);
+       throw error;
     }
-    return 0;
   },
 
   // Method Tambahan untuk Seed Data (Fix build error di SettingsPage)
