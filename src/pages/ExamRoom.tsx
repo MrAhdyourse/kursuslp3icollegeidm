@@ -372,16 +372,25 @@ const ExamRoom: React.FC = () => {
           </div>
 
           <div className="mt-12 flex flex-col items-center gap-6">
-             {/* TOMBOL FINAL SUBMIT (JIKA SEMUA SELESAI) */}
-             {LEVEL_ORDER.every(topic => completedTopics.includes(topic)) && (
+             {/* TOMBOL FINAL SUBMIT (JIKA MINIMAL 1 SELESAI) */}
+             {completedTopics.length > 0 && (
                <div className="w-full max-w-2xl bg-emerald-50 border-2 border-emerald-200 rounded-3xl p-8 text-center animate-fade-in-up">
                  <h3 className="text-2xl font-black text-emerald-700 mb-2 flex items-center justify-center gap-2">
-                   <CheckCircle size={32} /> SELURUH MODUL SELESAI
+                   <CheckCircle size={32} /> KONFIRMASI SELESAI
                  </h3>
-                 <p className="text-emerald-600 mb-6 font-medium">Anda telah menyelesaikan semua tahapan ujian. Silakan serahkan hasil kerja Anda sekarang.</p>
+                 <p className="text-emerald-600 mb-6 font-medium">
+                   {LEVEL_ORDER.every(topic => completedTopics.includes(topic)) 
+                     ? "Anda telah menyelesaikan semua tahapan ujian." 
+                     : "Anda baru menyelesaikan sebagian modul. Yakin ingin menyerahkan sekarang?"}
+                 </p>
                  <button 
                    onClick={() => {
-                     if(confirm("Yakin ingin menyerahkan seluruh hasil ujian?")) forceFinalSubmit();
+                     const isPartial = !LEVEL_ORDER.every(topic => completedTopics.includes(topic));
+                     const msg = isPartial 
+                       ? "PERHATIAN: Anda belum menyelesaikan semua modul. Yakin ingin menyerahkan hasil seadanya?" 
+                       : "Yakin ingin menyerahkan seluruh hasil ujian?";
+                     
+                     if(confirm(msg)) forceFinalSubmit();
                    }}
                    className="bg-emerald-600 text-white px-12 py-5 rounded-2xl font-bold shadow-xl hover:bg-emerald-700 hover:scale-105 transition-all flex items-center gap-3 mx-auto text-lg animate-pulse"
                  >
