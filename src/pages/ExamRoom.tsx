@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, CheckCircle, ChevronLeft, ChevronRight, List, FileSpreadsheet, FileText, Presentation, FolderOpen, Layers, Award, ArrowRightCircle } from 'lucide-react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 import { examService } from '../services/examService';
@@ -38,101 +38,199 @@ const ExamRoom: React.FC = () => {
 
     let unsubscribe = () => {};
 
-    const initSession = async () => {
-      const EXAM_ID = 'GLOBAL_UJIKOM';
-      const DOC_ID = `${EXAM_ID}_${user.uid}`;
-      const STORAGE_KEY = `ujikom_end_time_${user.uid}`;
-      const COMPLETED_KEY = `ujikom_completed_${user.uid}`;
+        const initSession = async () => {
 
-            // 1. LISTEN KE FIRESTORE (REAL-TIME)
-            unsubscribe = onSnapshot(doc(db, "exam_sessions", DOC_ID), (docSnap) => {
-               
-               // SKENARIO A: ADMIN MERESET DATA (Dokumen hilang di server)
-               if (!docSnap.exists()) {
-                  console.log("⚠️ RESET DETECTED! Clearing ALL local data...");
-                  
-                  // 1. WILD REMOVE: Hapus semua key yang berbau ujikom
-                  Object.keys(localStorage).forEach(key => {
-                     if (key.startsWith('ujikom_') || key.includes('exam_sessions')) {
-                        localStorage.removeItem(key);
-                     }
-                  });
-                  
-                  // 2. Clear State
-                  setCompletedTopics([]); 
-                  setAnswers({});
-                  setSession(null);
-                  
-                  toast.error("UJIAN DI-RESET ADMIN. Halaman akan dimuat ulang...", { duration: 2000 });
-                     
-                  // 3. HARD RELOAD (Nuklir Option: Agar RAM bersih)
-                  setTimeout(() => {
-                     window.location.reload();
-                  }, 1000);
-      
-                  /* RE-INIT SUDAH DITANGANI OLEH RELOAD */
-               } 
-               // SKENARIO B: DATA ADA DI SERVER (Resume / Sync)
-               else {
-                  const cloudData = docSnap.data() as StudentExamSession;
-                  console.log("Syncing from Cloud...");
-                  
-                  // Sync status
-                  if (cloudData.status === 'SUBMITTED') {
-                     // BYPASS MODE AKTIF: Komen baris redirect di bawah ini agar bisa tes berulang
-                     // navigate('/reports'); 
-                     toast("Mode Pengembang: Ujian sudah submit, tapi akses dibuka.", { icon: '🛠️' });
-                  }
-      
-                  setSession(cloudData);
-                  if (cloudData.answers) setAnswers(cloudData.answers);
-                  
-                  // Sync Completed Topics (Opsional, jika disimpan di cloud)
-                  const savedCompleted = localStorage.getItem(COMPLETED_KEY);
-                  if (savedCompleted) setCompletedTopics(JSON.parse(savedCompleted));
-               }
-            });
-            
-            // Timer Setup (Local)
-            let endTime = Number(localStorage.getItem(STORAGE_KEY));
-            if (!endTime || endTime < Date.now()) {
-              endTime = Date.now() + (180 * 60 * 1000);
-              localStorage.setItem(STORAGE_KEY, endTime.toString());
+          const EXAM_ID = 'GLOBAL_UJIKOM';
+
+          const DOC_ID = `${EXAM_ID}_${user.uid}`;
+
+          const STORAGE_KEY = `ujikom_end_time_${user.uid}`;
+
+          const COMPLETED_KEY = `ujikom_completed_${user.uid}`;
+
+          
+
+          // 1. CEK STATUS FIRESTORE DULU (SEBELUM BUAT SESI BARU)
+
+          // Ini kunci perbaikan Reset!
+
+          try {
+
+            const docRef = doc(db, "exam_sessions", DOC_ID);
+
+            const docSnap = await getDoc(docRef);
+
+            const localDataExists = localStorage.getItem(COMPLETED_KEY) || localStorage.getItem(STORAGE_KEY);
+
+    
+
+            // SKENARIO: ADMIN HAPUS DATA (RESET), TAPI SISWA MASIH PUNYA DATA LOKAL
+
+            if (!docSnap.exists() && localDataExists) {
+
+                console.log("⚠️ DETEKSI RESET ADMIN: Server Kosong, Lokal Ada. MELAKUKAN PEMBERSIHAN...");
+
+                
+
+                // HAPUS SEMUA JEJAK LOKAL
+
+                Object.keys(localStorage).forEach(key => {
+
+                   if (key.startsWith('ujikom_') || key.includes('exam_sessions')) {
+
+                      localStorage.removeItem(key);
+
+                   }
+
+                });
+
+                
+
+                setCompletedTopics([]);
+
+                setAnswers({});
+
+                setSession(null);
+
+                
+
+                toast.error("Instruktur telah mereset ujian. Memulai ulang...", { duration: 3000 });
+
+                
+
+                // RELOAD WAJIB (Agar state React bersih total)
+
+                setTimeout(() => window.location.reload(), 1000);
+
+                return; // STOP DI SINI. JANGAN LANJUT.
+
             }
-            
-                  // FORCE INIT (Create Doc if not exist)
-                  if (!session) {
-                     const freshExamData: any = { id: EXAM_ID, durationMinutes: 180 };
-                     
-                     // --- LOGIC PENENTUAN NAMA (ANTI-ANONYMOUS) ---
-                     let studentName = user.displayName;
-                     let studentNis = user.email || user.uid;
-            
-                     // 1. Coba ambil dari Email jika DisplayName kosong
-                     if (!studentName && user.email) {
-                        studentName = user.email.split('@')[0]; // budi@gmail -> budi
-                     }
-            
-                     // 2. JIKA MASIH KOSONG/ANEH, PAKSA INPUT MANUAL (Looping sampai isi)
-                     if (!studentName || studentName.trim() === '' || studentName.includes('User')) {
-                        let inputName = null;
-                        while (!inputName) {
-                           inputName = prompt("MOHON MAAF\n\nSistem tidak mendeteksi nama Anda.\nSilakan ketik NAMA LENGKAP Anda agar nilai tidak tertukar:");
-                           if (inputName && inputName.trim().length > 2) {
-                              studentName = inputName.trim();
-                           } else {
-                              inputName = null; // Ulangi jika kosong/pendek
-                           }
-                        }
-                     }
-                     
-                     // Simpan ke sesi
-                     examService.startExam(user.uid, freshExamData, { 
-                        name: studentName || 'Peserta Tanpa Nama', 
-                        nis: studentNis 
-                     });
-                  }
-                };    initSession();
+
+          } catch (e) {
+
+            console.warn("Gagal cek status awal:", e);
+
+          }
+
+    
+
+          // 2. LISTEN KE FIRESTORE (REAL-TIME PROTECTOR)
+
+          unsubscribe = onSnapshot(doc(db, "exam_sessions", DOC_ID), (docSnap) => {
+
+             // JIKA TIBA-TIBA DIHAPUS SAAT SEDANG UJIAN
+
+             if (!docSnap.exists()) {
+
+                 // Cek lagi apakah kita sedang punya sesi aktif di memori?
+
+                 if (session || localStorage.getItem(COMPLETED_KEY)) {
+
+                     console.log("⚠️ LIVE RESET DETECTED!");
+
+                     Object.keys(localStorage).forEach(key => {
+
+                       if (key.startsWith('ujikom_') || key.includes('exam_sessions')) {
+
+                          localStorage.removeItem(key);
+
+                       }
+
+                    });
+
+                    setTimeout(() => window.location.reload(), 500);
+
+                 }
+
+             } else {
+
+                 // Resume Data
+
+                 const cloudData = docSnap.data() as StudentExamSession;
+
+                 setSession(cloudData);
+
+                 if (cloudData.answers) setAnswers(cloudData.answers);
+
+                 
+
+                 // Sync Completed
+
+                 const savedCompleted = localStorage.getItem(COMPLETED_KEY);
+
+                 if (savedCompleted) setCompletedTopics(JSON.parse(savedCompleted));
+
+             }
+
+          });
+
+          
+
+          // Timer Setup
+
+          let endTime = Number(localStorage.getItem(STORAGE_KEY));
+
+          if (!endTime || endTime < Date.now()) {
+
+            endTime = Date.now() + (180 * 60 * 1000);
+
+            localStorage.setItem(STORAGE_KEY, endTime.toString());
+
+          }
+
+          
+
+          // 3. FORCE INIT (HANYA JIKA TIDAK DI-RESET)
+
+          if (!session) {
+
+             const freshExamData: any = { id: EXAM_ID, durationMinutes: 180 };
+
+             
+
+             // --- LOGIC PENENTUAN NAMA (ANTI-ANONYMOUS) ---
+
+             let studentName = user.displayName;
+
+             let studentNis = user.email || user.uid;
+
+    
+
+             if (!studentName && user.email) studentName = user.email.split('@')[0];
+
+    
+
+             // WAJIB INPUT NAMA JIKA KOSONG
+
+             if (!studentName || studentName.trim() === '' || studentName.includes('User')) {
+
+                let inputName = null;
+
+                // Gunakan Loop prompt yang agresif
+
+                while (!inputName || inputName.length < 3) {
+
+                   inputName = prompt("🔴 PENTING: Masukkan NAMA LENGKAP Anda untuk Lembar Ujian.\n(Minimal 3 huruf)");
+
+                   if (inputName) studentName = inputName.trim();
+
+                }
+
+             }
+
+             
+
+             examService.startExam(user.uid, freshExamData, { 
+
+                name: studentName || 'Siswa Tanpa Nama', 
+
+                nis: studentNis 
+
+             });
+
+          }
+
+        };    initSession();
 
     return () => {
       window.removeEventListener('popstate', handlePopState);
@@ -528,16 +626,43 @@ const ExamRoom: React.FC = () => {
             <h2 className="text-xl md:text-2xl font-bold text-slate-800 leading-relaxed mb-10">{currentQ.text}</h2>
 
             {currentQ.type === 'ESSAY' ? (
-              <div className="bg-blue-50 p-8 rounded-3xl border-2 border-dashed border-blue-200 text-center hover:bg-blue-100/50 transition-colors relative">
-                
+              <div className="space-y-6">
+                 {/* 1. SEKSI GOOGLE DRIVE (WAJIB) */}
+                 <div className="bg-orange-50 p-6 rounded-3xl border border-orange-200">
+                    <h3 className="font-black text-orange-700 mb-2 flex items-center gap-2">
+                       <FolderOpen size={20} /> LANGKAH 1: UPLOAD KE GOOGLE DRIVE
+                    </h3>
+                    <p className="text-sm text-orange-800 mb-4">
+                       Instruktur mewajibkan seluruh file jawaban dikumpulkan ke Folder Drive Bersama ini agar tidak hilang.
+                    </p>
+                    <a 
+                      href="https://drive.google.com/drive/folders/1EUD6nuCcUDlcINxLw__fjZOQ6Mx7BVGO?usp=drive_link" 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="block w-full bg-orange-600 text-white text-center py-4 rounded-xl font-bold hover:bg-orange-700 transition shadow-lg shadow-orange-200 mb-2 animate-pulse"
+                    >
+                       BUKA FOLDER PENGUMPULAN DRIVE ↗
+                    </a>
+                    <div className="text-[10px] text-center text-orange-600 font-bold">
+                       *Pastikan nama file Anda mengandung NAMA LENGKAP
+                    </div>
+                 </div>
+
+                 {/* 2. SEKSI KONFIRMASI SISTEM */}
+                 <div className="bg-blue-50 p-8 rounded-3xl border-2 border-dashed border-blue-200 text-center hover:bg-blue-100/50 transition-colors relative">
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-blue-200">
+                     Langkah 2: Konfirmasi Upload
+                  </div>
+
                 {answers[currentQ.id] ? (
-                  <div className="flex flex-col items-center animate-fade-in-up">
+                  <div className="flex flex-col items-center animate-fade-in-up pt-4">
                     <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
                       <CheckCircle size={32} />
                     </div>
-                    <h3 className="font-bold text-slate-800 text-lg mb-1">File Berhasil Diupload!</h3>
+                    <h3 className="font-bold text-slate-800 text-lg mb-1">File Terkonfirmasi!</h3>
+                    <p className="text-xs text-slate-500 mb-4">Anda telah mengupload bukti ke sistem.</p>
                     <a href={answers[currentQ.id]} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm font-medium mb-6 break-all max-w-md truncate">
-                      Lihat File Jawaban
+                      Lihat File Backup
                     </a>
                     <button 
                       onClick={() => handleAnswer(currentQ.id, null)} // Reset answer
@@ -547,7 +672,7 @@ const ExamRoom: React.FC = () => {
                     </button>
                   </div>
                 ) : (
-                  <>
+                  <div className="pt-4">
                     <input 
                       type="file" 
                       id={`file-${currentQ.id}`}
@@ -564,15 +689,15 @@ const ExamRoom: React.FC = () => {
                         }
 
                         setLoading(true);
-                        const toastId = toast.loading("Mengupload jawaban...");
+                        const toastId = toast.loading("Mengupload backup ke sistem...");
                         
                         try {
                           const url = await examService.uploadExamFile(file, user?.uid || 'guest', session?.examId || 'exam', currentQ.id);
                           await handleAnswer(currentQ.id, url);
-                          toast.success("Upload Berhasil!", { id: toastId });
+                          toast.success("Upload Sukses! Jawaban tersimpan.", { id: toastId });
                         } catch (err) {
                           console.error(err);
-                          toast.error("Gagal upload. Coba lagi.", { id: toastId });
+                          toast.error("Gagal upload backup. Coba lagi.", { id: toastId });
                         } finally {
                           setLoading(false);
                         }
@@ -582,15 +707,16 @@ const ExamRoom: React.FC = () => {
                       <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-4 shadow-md group-hover:scale-110 transition-transform">
                          {loading ? <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div> : <FolderOpen size={32} className="text-blue-500" />}
                       </div>
-                      <h3 className="font-bold text-slate-700 text-lg mb-1">Upload Hasil Praktikum</h3>
-                      <p className="text-slate-400 text-sm mb-4">Format: PDF, Office, ZIP (Max 7MB)</p>
+                      <h3 className="font-bold text-slate-700 text-lg mb-1">Upload Backup File</h3>
+                      <p className="text-slate-400 text-sm mb-4">Wajib upload ulang di sini sebagai bukti sistem.</p>
                       <span className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition">
                         Pilih File Komputer
                       </span>
                     </label>
-                  </>
+                  </div>
                 )}
               </div>
+             </div>
             ) : (
               <div className="space-y-4">
                 {currentQ.options.map((opt, idx) => {
