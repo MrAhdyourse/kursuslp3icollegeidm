@@ -31,6 +31,26 @@ const ExamRoom: React.FC = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showTips, setShowTips] = useState(false);
   const [needsName, setNeedsName] = useState(false);
+  const [redirectTimer, setRedirectTimer] = useState(4); // Timer Redirect
+
+  // --- AUTO REDIRECT EFFECT ---
+  useEffect(() => {
+     if (showSuccessModal) {
+        const interval = setInterval(() => {
+           setRedirectTimer((prev) => {
+              if (prev <= 1) {
+                 clearInterval(interval);
+                 navigate('/reports');
+                 return 0;
+              }
+              return prev - 1;
+           });
+        }, 1000);
+        return () => clearInterval(interval);
+     }
+  }, [showSuccessModal, navigate]);
+
+  // ... (Sisa kode logic sama)
   const [tempName, setTempName] = useState('');
   const [isExpired, setIsExpired] = useState(false);
 
@@ -421,7 +441,15 @@ const ExamRoom: React.FC = () => {
              <div className="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-8"><Award size={56} /></div>
              <h2 className="text-3xl font-black mb-4">Alhamdulillah, Selesai!</h2>
              <p className="text-slate-600 mb-10">Data hasil ujian telah terkirim ke instruktur.</p>
-             <button onClick={() => navigate('/reports')} className="w-full bg-slate-900 text-white font-bold py-5 rounded-2xl flex items-center justify-center gap-3">LIHAT REKAP NILAI <ArrowRightCircle size={20} /></button>
+                <div className="flex flex-col gap-3 items-center">
+                   <div className="w-full bg-slate-900 text-white font-bold py-5 rounded-2xl shadow-xl flex items-center justify-center gap-3">
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white/30 border-t-white"></div>
+                      <span>Mengalihkan ke beranda dalam {redirectTimer} detik...</span>
+                   </div>
+                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">
+                      LP3I COLLEGE INDRAMAYU • PROFESIONAL IT & OFFICE
+                   </p>
+                </div>
           </div></div>
        )}
     </div>
