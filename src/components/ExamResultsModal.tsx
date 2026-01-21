@@ -324,9 +324,11 @@ export const ExamResultsModal: React.FC<ExamResultsModalProps> = ({ isOpen, onCl
                              
                              {hasFile ? (
                                <div className="flex gap-2">
-                                 {/* Tombol LIHAT (Primary) */}
+                                 {/* Tombol LIHAT (Google Docs Viewer untuk PDF) */}
                                  <a 
-                                   href={answerUrl} 
+                                   href={answerUrl.endsWith('.pdf') 
+                                     ? `https://docs.google.com/viewer?url=${encodeURIComponent(answerUrl)}&embedded=true`
+                                     : answerUrl} 
                                    target="_blank" 
                                    rel="noreferrer"
                                    className="flex-1 flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl hover:shadow-md hover:border-blue-300 group transition-all"
@@ -337,20 +339,19 @@ export const ExamResultsModal: React.FC<ExamResultsModalProps> = ({ isOpen, onCl
                                      </div>
                                      <div className="text-left">
                                        <div className="text-xs font-bold text-slate-700 group-hover:text-blue-600 transition-colors">
-                                         {answerUrl.endsWith('.pdf') ? 'Dokumen PDF' : 'File Jawaban'}
+                                         {answerUrl.endsWith('.pdf') ? 'Buka PDF (Viewer)' : 'Buka File'}
                                        </div>
-                                       <div className="text-[10px] text-slate-400">Klik untuk membuka</div>
+                                       <div className="text-[10px] text-slate-400">Via Google Docs Viewer</div>
                                      </div>
                                    </div>
                                    <ExternalLink size={16} className="text-slate-300 group-hover:text-blue-500" />
                                  </a>
 
-                                 {/* Tombol DOWNLOAD (Secondary) */}
+                                 {/* Tombol DOWNLOAD (Direct Cloudinary) */}
                                  <a 
                                    href={answerUrl.replace('/upload/', '/upload/fl_attachment/')} 
-                                   download
                                    className="flex items-center justify-center p-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors"
-                                   title="Download File"
+                                   title="Download File Asli (Jika Viewer Gagal)"
                                  >
                                    <Download size={20} />
                                  </a>

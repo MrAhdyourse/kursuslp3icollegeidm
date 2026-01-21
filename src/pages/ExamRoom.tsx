@@ -100,22 +100,39 @@ const ExamRoom: React.FC = () => {
               localStorage.setItem(STORAGE_KEY, endTime.toString());
             }
             
-            // FORCE INIT (Create Doc if not exist)
-            if (!session) {
-               const freshExamData: any = { id: EXAM_ID, durationMinutes: 180 };
-               // TENTUKAN NAMA DISPLAY
-               let studentName = user.displayName || 'Peserta';
-               if (studentName === 'Peserta' && user.email) {
-                  studentName = user.email.split('@')[0]; // Fallback: ahdiaghni from email
-               }
-               
-               examService.startExam(user.uid, freshExamData, { 
-                  name: studentName, 
-                  nis: user.email || user.uid 
-               });
-            }
-          };
-    initSession();
+                  // FORCE INIT (Create Doc if not exist)
+                  if (!session) {
+                     const freshExamData: any = { id: EXAM_ID, durationMinutes: 180 };
+                     
+                     // --- LOGIC PENENTUAN NAMA (ANTI-ANONYMOUS) ---
+                     let studentName = user.displayName;
+                     let studentNis = user.email || user.uid;
+            
+                     // 1. Coba ambil dari Email jika DisplayName kosong
+                     if (!studentName && user.email) {
+                        studentName = user.email.split('@')[0]; // budi@gmail -> budi
+                     }
+            
+                     // 2. JIKA MASIH KOSONG/ANEH, PAKSA INPUT MANUAL (Looping sampai isi)
+                     if (!studentName || studentName.trim() === '' || studentName.includes('User')) {
+                        let inputName = null;
+                        while (!inputName) {
+                           inputName = prompt("MOHON MAAF\n\nSistem tidak mendeteksi nama Anda.\nSilakan ketik NAMA LENGKAP Anda agar nilai tidak tertukar:");
+                           if (inputName && inputName.trim().length > 2) {
+                              studentName = inputName.trim();
+                           } else {
+                              inputName = null; // Ulangi jika kosong/pendek
+                           }
+                        }
+                     }
+                     
+                     // Simpan ke sesi
+                     examService.startExam(user.uid, freshExamData, { 
+                        name: studentName || 'Peserta Tanpa Nama', 
+                        nis: studentNis 
+                     });
+                  }
+                };    initSession();
 
     return () => {
       window.removeEventListener('popstate', handlePopState);
