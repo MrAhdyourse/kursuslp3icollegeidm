@@ -210,34 +210,164 @@ const ExamRoom: React.FC = () => {
      );
   }
 
+  // --- RENDER 2: LOBBY UJIAN (WORLD CLASS REDESIGN) ---
   if (!exam) {
      const completed = session.completedTopics || [];
-     if (session.status === 'SUBMITTED' && !showSuccessModal) {
-        navigate('/reports');
-        return null;
-     }
+     const progressPercent = Math.round((completed.length / LEVEL_ORDER.length) * 100);
+     
      return (
         <div className="min-h-screen bg-slate-50 font-sans pb-20">
-           <header className="bg-white px-6 py-4 border-b sticky top-0 z-40 flex justify-between items-center shadow-sm">
-              <div><h1 className="font-black text-xl text-slate-800">Ujikom 2026</h1><p className="text-xs text-slate-500 font-bold">{session.studentName}</p></div>
+           {/* HEADER (Sticky & Glass) */}
+           <header className="bg-white/80 backdrop-blur-md px-6 py-4 border-b border-slate-200 sticky top-0 z-40 flex justify-between items-center shadow-sm">
+              <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30 text-white">
+                    <Award size={20} />
+                 </div>
+                 <div>
+                    <h1 className="font-black text-lg text-slate-800 tracking-tight leading-none">UJIKOM 2026</h1>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">{session.studentName}</p>
+                 </div>
+              </div>
+              
               <div className="flex items-center gap-4">
-                 {completed.length > 0 && <button onClick={handleFinalSubmit} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-bold animate-pulse">KIRIM HASIL ({completed.length}/5)</button>}
-                 <div className="bg-slate-900 text-white px-4 py-2 rounded-lg font-mono font-bold text-lg">{formatTime(timeLeft)}</div>
+                 <div className="hidden md:flex flex-col items-end">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Sisa Waktu</span>
+                    <div className={`font-mono font-bold text-xl ${timeLeft < 600 ? 'text-red-500 animate-pulse' : 'text-slate-800'}`}>
+                       {formatTime(timeLeft)}
+                    </div>
+                 </div>
+                 
+                 {/* Mobile Timer Icon */}
+                 <div className="md:hidden bg-slate-100 p-2 rounded-lg font-mono font-bold text-sm">
+                    {formatTime(timeLeft)}
+                 </div>
               </div>
            </header>
-           <main className="max-w-5xl mx-auto p-6">
-              <div className="text-center mb-10 mt-4"><h2 className="text-3xl font-black text-slate-800 mb-2">Pilih Modul Ujian</h2></div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                 {LEVEL_ORDER.map(topic => {
-                    const isDone = completed.includes(topic);
-                    return (
-                       <button key={topic} onClick={() => !isDone && handleStartTopic(topic)} disabled={isDone} className={`p-6 rounded-3xl border-2 transition-all flex flex-col items-center gap-4 ${isDone ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white hover:border-blue-400'}`}>
-                          {isDone && <CheckCircle className="text-emerald-600" size={24} />}
-                          <h3 className="font-black">{topic}</h3>
-                          <span className="text-[10px] font-bold uppercase">{isDone ? 'SELESAI' : 'MULAI'}</span>
+
+           <main className="max-w-6xl mx-auto p-6 md:p-8 space-y-10">
+              
+              {/* HERO SECTION (Progress) */}
+              <div className="relative bg-slate-900 rounded-[2.5rem] p-8 md:p-12 overflow-hidden shadow-2xl text-white">
+                 {/* Background Decor */}
+                 <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
+
+                 <div className="relative z-10 flex flex-col md:flex-row justify-between items-end gap-8">
+                    <div className="w-full">
+                       <div className="flex items-center gap-2 text-blue-300 font-bold text-xs uppercase tracking-widest mb-2">
+                          <CheckCircle size={14} /> Progress Capaian
+                       </div>
+                       <h2 className="text-3xl md:text-4xl font-black mb-6 leading-tight">
+                          Halo, {(session.studentName || 'Peserta').split(' ')[0]}! <br/>
+                          <span className="text-slate-400 font-medium text-lg">Selesaikan {LEVEL_ORDER.length - completed.length} modul lagi untuk lulus.</span>
+                       </h2>
+                       
+                       {/* Progress Bar */}
+                       <div className="w-full bg-slate-800 h-4 rounded-full overflow-hidden border border-slate-700">
+                          <div 
+                             className="h-full bg-gradient-to-r from-blue-500 to-emerald-400 transition-all duration-1000 ease-out relative"
+                             style={{ width: `${progressPercent}%` }}
+                          >
+                             <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]"></div>
+                          </div>
+                       </div>
+                       <div className="flex justify-between mt-2 text-xs font-bold text-slate-400">
+                          <span>0%</span>
+                          <span>{progressPercent}% Selesai</span>
+                          <span>100%</span>
+                       </div>
+                    </div>
+
+                    {/* ACTION BUTTON (Primary) */}
+                    {completed.length > 0 && (
+                       <button 
+                         onClick={handleFinalSubmit}
+                         className="w-full md:w-auto bg-emerald-500 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-emerald-500/40 hover:bg-emerald-400 hover:scale-105 transition-all flex items-center justify-center gap-3 animate-bounce-slow whitespace-nowrap"
+                       >
+                          <span>KIRIM SEMUA HASIL</span>
+                          <ArrowRightCircle size={24} />
                        </button>
-                    )
-                 })}
+                    )}
+                 </div>
+              </div>
+
+              {/* MODULE GRID */}
+              <div>
+                 <h3 className="font-black text-slate-800 text-xl mb-6 flex items-center gap-2">
+                    <Layers className="text-slate-400" /> Daftar Modul Ujian
+                 </h3>
+                 
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {LEVEL_ORDER.map((topic, idx) => {
+                       const isDone = completed.includes(topic);
+                       // Visual Config
+                       let config = { bg: 'from-slate-700 to-slate-900', icon: Layers, label: topic, accent: 'bg-slate-500' };
+                       
+                       if (topic === 'EXCEL') config = { bg: 'from-emerald-600 to-teal-800', icon: FileSpreadsheet, label: 'Microsoft Excel', accent: 'bg-emerald-500' };
+                       if (topic === 'WORD') config = { bg: 'from-blue-600 to-indigo-800', icon: FileText, label: 'Microsoft Word', accent: 'bg-blue-500' };
+                       if (topic === 'PPT') config = { bg: 'from-orange-500 to-red-700', icon: Presentation, label: 'PowerPoint', accent: 'bg-orange-500' };
+                       if (topic === 'ARSIP') config = { bg: 'from-purple-600 to-fuchsia-800', icon: FolderOpen, label: 'Kearsipan', accent: 'bg-purple-500' };
+                       if (topic === 'PRAKTIKUM') config = { bg: 'from-slate-700 to-black', icon: Award, label: 'Ujian Praktikum', accent: 'bg-indigo-500' };
+
+                       const Icon = config.icon;
+
+                       return (
+                          <button 
+                            key={topic}
+                            onClick={() => !isDone && handleStartTopic(topic)}
+                            disabled={isDone}
+                            className={`group relative p-6 rounded-[2rem] text-left transition-all duration-300 overflow-hidden ${
+                               isDone 
+                               ? 'bg-slate-100 border-2 border-slate-200 opacity-60 cursor-not-allowed' 
+                               : 'bg-white border border-slate-100 shadow-xl hover:shadow-2xl hover:-translate-y-2'
+                            }`}
+                          >
+                             {/* Card Header */}
+                             <div className="flex justify-between items-start mb-12 relative z-10">
+                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg bg-gradient-to-br ${config.bg} group-hover:scale-110 transition-transform duration-500`}>
+                                   <Icon size={24} />
+                                </div>
+                                <div className="text-[10px] font-black text-slate-300 bg-slate-100 px-2 py-1 rounded-lg uppercase tracking-widest">
+                                   Level {idx + 1}
+                                </div>
+                             </div>
+
+                             {/* Card Body */}
+                             <div className="relative z-10">
+                                <h4 className={`text-lg font-black mb-1 ${isDone ? 'text-slate-400' : 'text-slate-800 group-hover:text-blue-600'} transition-colors`}>
+                                   {config.label}
+                                </h4>
+                                <p className="text-xs text-slate-400 font-medium">
+                                   {isDone ? 'Terekam di Server' : 'Klik untuk mengerjakan'}
+                                </p>
+                             </div>
+
+                             {/* Status Badge */}
+                             <div className="mt-6 flex items-center gap-2">
+                                {isDone ? (
+                                   <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs bg-emerald-50 px-3 py-1.5 rounded-lg w-fit">
+                                      <CheckCircle size={14} /> SELESAI
+                                   </div>
+                                ) : (
+                                   <div className="flex items-center gap-2 text-blue-600 font-bold text-xs group-hover:gap-3 transition-all">
+                                      KERJAKAN SEKARANG <ArrowRightCircle size={16} />
+                                   </div>
+                                )}
+                             </div>
+
+                             {/* Decoration */}
+                             <div className={`absolute -bottom-6 -right-6 w-32 h-32 rounded-full opacity-10 blur-2xl ${config.accent}`}></div>
+                          </button>
+                       )
+                    })}
+                 </div>
+              </div>
+
+              {/* FOOTER */}
+              <div className="text-center pt-10 border-t border-slate-200">
+                 <p className="text-xs text-slate-400 font-medium">
+                    Ingin tantangan lebih? <button onClick={() => handleStartTopic('OMNIBUS')} className="text-slate-600 hover:text-blue-600 underline font-bold">Coba Mode Omnibus</button>
+                 </p>
               </div>
            </main>
         </div>
