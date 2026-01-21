@@ -57,11 +57,10 @@ export const examService = {
   },
 
   // Mulai Ujian Baru
-  startExam: async (studentId: string, exam: ExamConfig): Promise<StudentExamSession> => {
+  startExam: async (studentId: string, exam: ExamConfig, studentProfile?: { name: string, nis: string }): Promise<StudentExamSession> => {
     const sessions = JSON.parse(localStorage.getItem(STORAGE_KEYS.SESSIONS) || '[]');
     
     // 1. CEK KE CLOUD (FIRESTORE) TERLEBIH DAHULU
-    // Kita gunakan ID dokumen yang konsisten: EXAMID_STUDENTID
     const docId = `${exam.id}_${studentId}`;
     try {
       const docRef = doc(db, "exam_sessions", docId);
@@ -83,8 +82,6 @@ export const examService = {
     }
 
     // 2. JIKA DI CLOUD TIDAK ADA, CEK LOKAL (Tapi anggap Reset jika Cloud Kosong & kita Online)
-    // Jika kita sampai di sini, artinya di Cloud tidak ada data. 
-    // Jika di local ada, kita HAPUS karena admin sudah mereset di cloud.
     console.log("[ExamService] Sesi tidak ditemukan di Cloud. Memulai dari nol (Reset).");
     const freshSessions = sessions.filter((s: any) => s.studentId !== studentId);
     localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(freshSessions));
@@ -95,6 +92,8 @@ export const examService = {
     const newSession: StudentExamSession = {
       id: `SES-${Date.now()}`,
       studentId,
+      studentName: studentProfile?.name || 'Peserta', // Simpan Nama
+      studentNis: studentProfile?.nis || '',         // Simpan NIS/Email
       examId: exam.id,
       startTime,
       endTime,
@@ -106,9 +105,7 @@ export const examService = {
     localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(freshSessions));
     
     // --- FIX: CREATE DOC DI FIRESTORE IMMEDIATELY ---
-    // Agar listener di ExamRoom tidak menganggap ini "Reset" karena data belum ada
     try {
-      const docId = `${exam.id}_${studentId}`;
       await setDoc(doc(db, "exam_sessions", docId), newSession);
     } catch (e) {
       console.error("Gagal init firestore session:", e);

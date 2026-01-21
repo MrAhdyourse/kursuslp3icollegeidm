@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  X, Award, CheckCircle, XCircle, FileText, 
+  X, Award, CheckCircle, XCircle, FileText, Download,
   Search, ChevronRight, User, Clock, AlertCircle, 
   ExternalLink, BarChart2
 } from 'lucide-react';
@@ -72,27 +72,35 @@ export const ExamResultsModal: React.FC<ExamResultsModalProps> = ({ isOpen, onCl
            // D. Ambil Data Siswa & Mapping (Sama seperti sebelumnya)
            const registeredStudents = await studentService.getAllStudents();
 
-           const mappedResults: EnhancedResult[] = allSessions.map(session => {
-              const matchedStudent = registeredStudents.find(s => s.id === session.studentId);
-              let displayName = matchedStudent?.name || "Peserta Tamu";
-              let displayNis = matchedStudent?.nis || session.studentId.substring(0, 6).toUpperCase();
+      // C. MAP SESI KE HASIL
+      const mappedResults: EnhancedResult[] = allSessions.map(session => {
+        // Cari nama siswa (Prioritas: Data yang tertanam di sesi)
+        let displayName = session.studentName; 
+        let displayNis = session.studentNis;
 
-              if (!matchedStudent && session.studentId.length > 8) {
-                 displayName = `User (${session.studentId.substring(0,6)}...)`;
-              }
+        // Jika tidak ada di sesi, cari di registry
+        if (!displayName) {
+           const matchedStudent = registeredStudents.find(s => s.id === session.studentId);
+           displayName = matchedStudent?.name || "Peserta Tamu";
+           displayNis = matchedStudent?.nis || session.studentId.substring(0, 6).toUpperCase();
 
-              return {
-                sessionId: session.id,
-                studentId: session.studentId,
-                studentName: displayName,
-                nis: displayNis,
-                status: session.status || 'IN_PROGRESS',
-                score: session.finalScore || 0,
-                answers: session.answers || {},
-                submittedAt: session.endTime ? new Date(session.endTime).toLocaleString() : null,
-                durationMinutes: 180
-              };
-           });
+           if (!matchedStudent && session.studentId.length > 10) {
+              displayName = "User: " + session.studentId.substring(0, 8);
+           }
+        }
+
+        return {
+          sessionId: session.id,
+          studentId: session.studentId,
+          studentName: displayName || 'Unknown',
+          nis: displayNis || '-',
+          status: session.status || 'IN_PROGRESS',
+          score: session.finalScore || 0,
+          answers: session.answers || {},
+          submittedAt: session.endTime ? new Date(session.endTime).toLocaleString() : null,
+          durationMinutes: 180 
+        };
+      });
 
            setResults(mappedResults);
            setLoading(false);
@@ -315,23 +323,38 @@ export const ExamResultsModal: React.FC<ExamResultsModalProps> = ({ isOpen, onCl
                              <p className="text-sm font-semibold text-slate-700 mb-4 line-clamp-2" title={q.text}>{q.text}</p>
                              
                              {hasFile ? (
-                               <a 
-                                 href={answerUrl} 
-                                 target="_blank" 
-                                 rel="noreferrer"
-                                 className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl hover:shadow-md group transition-all"
-                               >
-                                 <div className="flex items-center gap-3">
-                                   <div className="w-10 h-10 bg-red-100 text-red-500 rounded-lg flex items-center justify-center">
-                                     <FileText size={20} />
+                               <div className="flex gap-2">
+                                 {/* Tombol LIHAT (Primary) */}
+                                 <a 
+                                   href={answerUrl} 
+                                   target="_blank" 
+                                   rel="noreferrer"
+                                   className="flex-1 flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl hover:shadow-md hover:border-blue-300 group transition-all"
+                                 >
+                                   <div className="flex items-center gap-3">
+                                     <div className="w-10 h-10 bg-red-100 text-red-500 rounded-lg flex items-center justify-center">
+                                       <FileText size={20} />
+                                     </div>
+                                     <div className="text-left">
+                                       <div className="text-xs font-bold text-slate-700 group-hover:text-blue-600 transition-colors">
+                                         {answerUrl.endsWith('.pdf') ? 'Dokumen PDF' : 'File Jawaban'}
+                                       </div>
+                                       <div className="text-[10px] text-slate-400">Klik untuk membuka</div>
+                                     </div>
                                    </div>
-                                   <div className="text-left">
-                                     <div className="text-xs font-bold text-slate-700 group-hover:text-blue-600 transition-colors">Lihat File Jawaban</div>
-                                     <div className="text-[10px] text-slate-400">Klik untuk unduh/preview</div>
-                                   </div>
-                                 </div>
-                                 <ExternalLink size={16} className="text-slate-300 group-hover:text-blue-500" />
-                               </a>
+                                   <ExternalLink size={16} className="text-slate-300 group-hover:text-blue-500" />
+                                 </a>
+
+                                 {/* Tombol DOWNLOAD (Secondary) */}
+                                 <a 
+                                   href={answerUrl.replace('/upload/', '/upload/fl_attachment/')} 
+                                   download
+                                   className="flex items-center justify-center p-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors"
+                                   title="Download File"
+                                 >
+                                   <Download size={20} />
+                                 </a>
+                               </div>
                              ) : (
                                <div className="flex items-center gap-2 p-3 bg-slate-100 rounded-xl text-slate-400 text-xs font-bold border border-slate-200 border-dashed justify-center">
                                  <AlertCircle size={16} /> Siswa belum mengupload

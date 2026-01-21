@@ -23,6 +23,8 @@ export interface ExamConfig {
 export interface StudentExamSession {
   id: string; // ID Unik Sesi
   studentId: string;
+  studentName?: string; // Snapshot Nama Siswa saat ujian
+  studentNis?: string;  // Snapshot NIS/Email saat ujian
   examId: string;
   startTime: number; // Timestamp mulai (ms)
   endTime: number;   // Timestamp wajib selesai (ms)

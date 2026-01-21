@@ -44,61 +44,77 @@ const ExamRoom: React.FC = () => {
       const STORAGE_KEY = `ujikom_end_time_${user.uid}`;
       const COMPLETED_KEY = `ujikom_completed_${user.uid}`;
 
-      // 1. LISTEN KE FIRESTORE (REAL-TIME)
-      unsubscribe = onSnapshot(doc(db, "exam_sessions", DOC_ID), (docSnap) => {
-         
-         // SKENARIO A: ADMIN MERESET DATA (Dokumen hilang di server)
-         if (!docSnap.exists()) {
-            console.log("⚠️ RESET DETECTED! Clearing ALL local data...");
-            
-            // 1. WILD REMOVE: Hapus semua key yang berbau ujikom
-            Object.keys(localStorage).forEach(key => {
-               if (key.startsWith('ujikom_') || key.includes('exam_sessions')) {
-                  localStorage.removeItem(key);
+            // 1. LISTEN KE FIRESTORE (REAL-TIME)
+            unsubscribe = onSnapshot(doc(db, "exam_sessions", DOC_ID), (docSnap) => {
+               
+               // SKENARIO A: ADMIN MERESET DATA (Dokumen hilang di server)
+               if (!docSnap.exists()) {
+                  console.log("⚠️ RESET DETECTED! Clearing ALL local data...");
+                  
+                  // 1. WILD REMOVE: Hapus semua key yang berbau ujikom
+                  Object.keys(localStorage).forEach(key => {
+                     if (key.startsWith('ujikom_') || key.includes('exam_sessions')) {
+                        localStorage.removeItem(key);
+                     }
+                  });
+                  
+                  // 2. Clear State
+                  setCompletedTopics([]); 
+                  setAnswers({});
+                  setSession(null);
+                  
+                  toast.error("UJIAN DI-RESET ADMIN. Halaman akan dimuat ulang...", { duration: 2000 });
+                     
+                  // 3. HARD RELOAD (Nuklir Option: Agar RAM bersih)
+                  setTimeout(() => {
+                     window.location.reload();
+                  }, 1000);
+      
+                  /* RE-INIT SUDAH DITANGANI OLEH RELOAD */
+               } 
+               // SKENARIO B: DATA ADA DI SERVER (Resume / Sync)
+               else {
+                  const cloudData = docSnap.data() as StudentExamSession;
+                  console.log("Syncing from Cloud...");
+                  
+                  // Sync status
+                  if (cloudData.status === 'SUBMITTED') {
+                     // BYPASS MODE AKTIF: Komen baris redirect di bawah ini agar bisa tes berulang
+                     // navigate('/reports'); 
+                     toast("Mode Pengembang: Ujian sudah submit, tapi akses dibuka.", { icon: '🛠️' });
+                  }
+      
+                  setSession(cloudData);
+                  if (cloudData.answers) setAnswers(cloudData.answers);
+                  
+                  // Sync Completed Topics (Opsional, jika disimpan di cloud)
+                  const savedCompleted = localStorage.getItem(COMPLETED_KEY);
+                  if (savedCompleted) setCompletedTopics(JSON.parse(savedCompleted));
                }
             });
             
-            // 2. Clear State
-            setCompletedTopics([]); 
-            setAnswers({});
-            setSession(null);
-            
-            toast.error("UJIAN DI-RESET ADMIN. Halaman akan dimuat ulang...", { duration: 2000 });
-               
-            // 3. HARD RELOAD (Nuklir Option: Agar RAM bersih)
-            setTimeout(() => {
-               window.location.reload();
-            }, 1000);
-         }  
-         // SKENARIO B: DATA ADA DI SERVER (Resume / Sync)
-         else {
-            const cloudData = docSnap.data() as StudentExamSession;
-            console.log("Syncing from Cloud...");
-            
-            // Sync status
-            if (cloudData.status === 'SUBMITTED') {
-               // BYPASS MODE AKTIF: Komen baris redirect di bawah ini agar bisa tes berulang
-               // navigate('/reports'); 
-               toast("Mode Pengembang: Ujian sudah submit, tapi akses dibuka.", { icon: '🛠️' });
+            // Timer Setup (Local)
+            let endTime = Number(localStorage.getItem(STORAGE_KEY));
+            if (!endTime || endTime < Date.now()) {
+              endTime = Date.now() + (180 * 60 * 1000);
+              localStorage.setItem(STORAGE_KEY, endTime.toString());
             }
-
-            setSession(cloudData);
-            if (cloudData.answers) setAnswers(cloudData.answers);
             
-            // Sync Completed Topics (Opsional, jika disimpan di cloud)
-            const savedCompleted = localStorage.getItem(COMPLETED_KEY);
-            if (savedCompleted) setCompletedTopics(JSON.parse(savedCompleted));
-         }
-      });
-      
-      // Timer Setup (Local)
-      let endTime = Number(localStorage.getItem(STORAGE_KEY));
-      if (!endTime || endTime < Date.now()) {
-        endTime = Date.now() + (180 * 60 * 1000);
-        localStorage.setItem(STORAGE_KEY, endTime.toString());
-      }
-    };
-
+            // FORCE INIT (Create Doc if not exist)
+            if (!session) {
+               const freshExamData: any = { id: EXAM_ID, durationMinutes: 180 };
+               // TENTUKAN NAMA DISPLAY
+               let studentName = user.displayName || 'Peserta';
+               if (studentName === 'Peserta' && user.email) {
+                  studentName = user.email.split('@')[0]; // Fallback: ahdiaghni from email
+               }
+               
+               examService.startExam(user.uid, freshExamData, { 
+                  name: studentName, 
+                  nis: user.email || user.uid 
+               });
+            }
+          };
     initSession();
 
     return () => {
