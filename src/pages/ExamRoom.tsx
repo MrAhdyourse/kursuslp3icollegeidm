@@ -298,36 +298,52 @@ const ExamRoom: React.FC = () => {
   }
 
   if (!exam || !session) {
-    const todayDate = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
     const userProgram = (user as any)?.program || "Administrasi Perkantoran";
 
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
         <header className="bg-white border-b border-slate-200 px-8 py-6 flex justify-between items-center shadow-sm sticky top-0 z-50">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight flex items-center gap-3">
-              <Award className="text-blue-600" size={28} />
-              Ujian Kompetensi (Ujikom)
-            </h1>
-            <p className="text-slate-500 text-sm font-medium mt-1 flex items-center gap-2">
-              <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{userProgram}</span>
-              <span className="text-slate-300">|</span>
-              <span>LP3I College Indramayu</span>
-              <span className="text-slate-300">|</span>
-              <span>{todayDate}</span>
-            </p>
+          <div className="flex items-center gap-4">
+            <div className="bg-blue-600 p-2.5 rounded-2xl shadow-lg shadow-blue-200">
+               <Award className="text-white" size={28} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black text-slate-800 tracking-tight leading-none">
+                Ujian Kompetensi (Ujikom)
+              </h1>
+              <p className="text-slate-500 text-[10px] font-bold mt-1.5 flex items-center gap-2">
+                <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider">{userProgram}</span>
+                <span className="text-slate-300">|</span>
+                <span>LP3I College Indramayu</span>
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-6">
+            {/* TOMBOL KIRIM FINAL DI HEADER (CEPAT) */}
+            {completedTopics.length > 0 && (
+              <button 
+                onClick={() => {
+                  const isAllDone = LEVEL_ORDER.every(topic => completedTopics.includes(topic));
+                  if(confirm(isAllDone ? "Yakin ingin menyerahkan seluruh hasil ujian?" : "Anda belum menyelesaikan semua modul. Yakin ingin mengirim hasil yang ada saja?")) {
+                    forceFinalSubmit();
+                  }
+                }}
+                className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold shadow-xl hover:bg-emerald-700 hover:scale-105 transition-all flex items-center gap-2 animate-bounce-slow"
+              >
+                <ArrowRightCircle size={20} /> KIRIM HASIL AKHIR
+              </button>
+            )}
+
             <div className="flex flex-col items-end">
                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Sisa Waktu Global</span>
                <div className={`flex items-center gap-2 px-4 py-1.5 rounded-lg font-mono text-xl font-black border-2 ${timeLeft < 300 ? 'bg-red-50 border-red-200 text-red-600 animate-pulse' : 'bg-slate-50 border-slate-100 text-slate-700'}`}>
                  <Clock size={18} /> {formatTime(timeLeft)}
                </div>
             </div>
-            <div className="flex items-center gap-2 text-red-500 font-bold text-xs bg-red-50 px-3 py-2 rounded-lg border border-red-100">
+            <div className="hidden md:flex items-center gap-2 text-red-500 font-bold text-[10px] bg-red-50 px-3 py-2 rounded-lg border border-red-100">
               <div className="animate-pulse"><div className="w-2 h-2 bg-red-500 rounded-full"></div></div>
-              MODE TERKUNCI
+              TERKUNCI
             </div>
           </div>
         </header>

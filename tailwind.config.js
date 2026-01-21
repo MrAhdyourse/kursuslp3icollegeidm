@@ -60,12 +60,17 @@ export default {
         'zoom-slow': {
           '0%': { transform: 'scale(1)' },
           '100%': { transform: 'scale(1.1)' },
+        },
+        'bounce-slow': {
+          '0%, 100%': { transform: 'translateY(-5%)', animationTimingFunction: 'cubic-bezier(0.8, 0, 1, 1)' },
+          '50%': { transform: 'translateY(0)', animationTimingFunction: 'cubic-bezier(0, 0, 0.2, 1)' }
         }
       },
       animation: {
         shake: 'shake 0.4s ease-in-out',
         'fade-in-up': 'fade-in-up 0.6s ease-out forwards',
         'zoom-slow': 'zoom-slow 20s linear infinite alternate',
+        'bounce-slow': 'bounce-slow 2s infinite',
       },
     },
   },
