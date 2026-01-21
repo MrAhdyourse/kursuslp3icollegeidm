@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';import { studentService } from '../services/studentService';
 import { scheduleService } from '../services/scheduleService';
 import { moduleService, type ModuleData } from '../services/moduleService';
-import { examService } from '../services/examService';
 import { useAuth } from '../context/AuthContext';
 import { ModuleUploadModal } from '../components/ModuleUploadModal';
 import { ExamResultsModal } from '../components/ExamResultsModal';
@@ -69,13 +68,13 @@ const Classmates: React.FC = () => {
     setModules(data);
   };
 
-  // FETCH EXAM ID (New)
+  // FETCH EXAM ID (Fix: Hardcode ke GLOBAL_UJIKOM agar sinkron dengan siswa)
   useEffect(() => {
     const fetchExam = async () => {
       const cls = classes.find(c => c.id === selectedClassId);
       if (cls && activeTab === 'FINAL') {
-        const exam = await examService.getExamByProgram(cls.programId); // Assuming programId matches exam program
-        if (exam) setActiveExamId(exam.id);
+        // Kita force ID-nya sama dengan yang dipakai di ExamRoom.tsx
+        setActiveExamId('GLOBAL_UJIKOM');
       }
     };
     fetchExam();
