@@ -1,18 +1,34 @@
 import type { Question } from '../../types/exam';
 
-// --- 5 SOAL ESSAY PRAKTIKUM (DEFINISI AWAL) ---
+// --- 5 SOAL ESSAY PRAKTIKUM (REVISI FINAL) ---
 export const ESSAY_QUESTIONS: Question[] = [
   {
-    id: "ESSAY-EXCEL",
-    text: "PRAKTIK EXCEL: Unduh file 'Data_Gaji_Kotor.xlsx' (dummy). Rapikan data menggunakan rumus Text, hitung Gaji Bersih, dan buat Pivot Table. Upload file hasil kerja Anda (XLSX).",
+    id: "ESSAY-EXCEL-BASIC",
+    text: "PRAKTIK EXCEL 1 (DASAR): Buatlah 'Laporan Gaji Karyawan' untuk 10 orang. Gunakan rumus SUM untuk total gaji, AVERAGE untuk rata-rata, MAX/MIN untuk gaji tertinggi/terendah, COUNT untuk jumlah karyawan, dan fungsi IF untuk menentukan Bonus (Jika Masa Kerja > 5 Tahun, Bonus Rp 500.000, jika tidak 0). Upload file Excel (.xlsx).",
     type: "ESSAY",
     options: [],
     correctIndex: 0,
     points: 100
   },
   {
-    id: "ESSAY-WORD",
-    text: "PRAKTIK WORD: Buat Surat Undangan Rapat Resmi dengan Mail Merge (5 penerima beda). Gunakan Kop Surat resmi. Upload file surat (DOCX) dan sumber data.",
+    id: "ESSAY-EXCEL-ADV",
+    text: "PRAKTIK EXCEL 2 (LANJUTAN): Anda memiliki data penjualan mentah. 1. Gunakan VLOOKUP untuk mengisi Nama Barang berdasarkan Kode. 2. Gunakan HLOOKUP untuk mengisi Diskon berdasarkan Kategori. 3. Buatlah PIVOT TABLE yang merangkum Total Penjualan per Wilayah. Upload file Excel (.xlsx).",
+    type: "ESSAY",
+    options: [],
+    correctIndex: 0,
+    points: 100
+  },
+  {
+    id: "ESSAY-WORD-LETTER",
+    text: "PRAKTIK WORD 1 (SURAT): Buatlah Surat Penawaran Kerjasama Resmi dari 'PT. AHDI KREATIF INDONESIA' yang ditujukan kepada Pimpinan 'PT. MITRA JAYA ABADI'. Isinya menawarkan jasa Digital Marketing. Perhatikan format tanggal, nomor surat, dan tata bahasa baku. Upload file Word (.docx).",
+    type: "ESSAY",
+    options: [],
+    correctIndex: 0,
+    points: 100
+  },
+  {
+    id: "ESSAY-WORD-KOP",
+    text: "PRAKTIK WORD 2 (DESAIN): Buatlah KOP SURAT (Letterhead) resmi untuk perusahaan imajiner Anda. Gunakan fitur Shapes/Drawing untuk membuat Logo sederhana di pojok kiri, tambahkan alamat lengkap, email, dan garis pemisah (border) yang rapi di bagian Header dokumen. Upload file Word (.docx).",
     type: "ESSAY",
     options: [],
     correctIndex: 0,
@@ -20,23 +36,7 @@ export const ESSAY_QUESTIONS: Question[] = [
   },
   {
     id: "ESSAY-PPT",
-    text: "PRAKTIK PPT: Buat presentasi profil diri (CV) maksimal 5 slide dengan Slide Master dan transisi Morph. Upload file PPTX.",
-    type: "ESSAY",
-    options: [],
-    correctIndex: 0,
-    points: 100
-  },
-  {
-    id: "ESSAY-ARSIP",
-    text: "PRAKTIK ARSIP: Simulasikan sistem pengarsipan abjad. Buat folder berisi 5 dokumen fiktif dengan nama sesuai kaidah Indeks Abjad. Upload file ZIP folder tersebut.",
-    type: "ESSAY",
-    options: [],
-    correctIndex: 0,
-    points: 100
-  },
-  {
-    id: "ESSAY-FINAL",
-    text: "STUDI KASUS INTEGRASI: Anda adalah sekretaris. Buatlah Laporan Keuangan Bulanan di Excel, lalu copy-paste tabel tersebut ke Word sebagai 'Linked Object' dalam Laporan Pertanggungjawaban. Upload kedua file (Excel & Word) dalam satu folder GDrive dan kirim link-nya/Upload ZIP.",
+    text: "PRAKTIK POWERPOINT: Buatlah slide presentasi 'Company Profile' (Profil Perusahaan) minimal 5 slide. Slide 1: Judul Menarik. Slide 2: Tentang Kami. Slide 3: Layanan. Slide 4: Tim Kami. Slide 5: Kontak. Wajib gunakan Transisi antar slide dan Animasi pada teks/gambar. Upload file PowerPoint (.pptx).",
     type: "ESSAY",
     options: [],
     correctIndex: 0,

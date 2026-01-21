@@ -31,31 +31,46 @@ const Classmates: React.FC = () => {
   // COUNTDOWN LOGIC (Target: 20 Jan 2026 08:00)
   const [examCountdown, setExamCountdown] = useState<string>('');
   const [isExamOpen, setIsExamOpen] = useState(false);
+  
+  // COUNTDOWN DEADLINE HARIAN (23:59:59)
+  const [deadlineTimer, setDeadlineTimer] = useState<string>('');
 
   useEffect(() => {
-    // Set Target Date: Selasa, 20 Januari 2026 jam 08:00 WIB
+    // 1. Logic Pembukaan Soal (Target Fix)
     const targetDate = new Date('2026-01-20T08:00:00').getTime();
 
-    const updateTimer = () => {
+    // 2. Logic Penutupan Harian (23:59 Malam Ini)
+    const updateTimers = () => {
       const now = Date.now();
-      const diff = targetDate - now;
-
-      if (diff <= 0) {
+      
+      // Timer Pembukaan
+      const diffOpen = targetDate - now;
+      if (diffOpen <= 0) {
         setIsExamOpen(true);
         setExamCountdown('UJIAN DIBUKA');
       } else {
         setIsExamOpen(false);
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        
-        setExamCountdown(`${days} Hari : ${hours} Jam : ${minutes} Menit : ${seconds} Detik`);
+        // ... (existing logic for opening)
+      }
+
+      // Timer Penutupan Harian
+      const todayDeadline = new Date();
+      todayDeadline.setHours(23, 59, 59, 999);
+      const diffClose = todayDeadline.getTime() - now;
+      
+      if (diffClose > 0) {
+         const hours = Math.floor((diffClose % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+         const minutes = Math.floor((diffClose % (1000 * 60 * 60)) / (1000 * 60));
+         const seconds = Math.floor((diffClose % (1000 * 60)) / 1000);
+         setDeadlineTimer(`${hours} Jam ${minutes} Menit ${seconds} Detik`);
+      } else {
+         setDeadlineTimer('AKSES DITUTUP');
+         setIsExamOpen(false); // Paksa tutup jika lewat tengah malam
       }
     };
 
-    updateTimer(); // Initial call
-    const timer = setInterval(updateTimer, 1000);
+    updateTimers(); 
+    const timer = setInterval(updateTimers, 1000);
 
     return () => clearInterval(timer);
   }, []);
@@ -359,8 +374,8 @@ const Classmates: React.FC = () => {
                        <div className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mt-1">Menit Durasi</div>
                     </div>
                     <div className="p-5 bg-white/80 rounded-2xl border border-yellow-100 shadow-sm backdrop-blur-sm">
-                       <div className="text-3xl font-black text-slate-800">50</div>
-                       <div className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mt-1">Soal Kompetensi</div>
+                       <div className="text-3xl font-black text-slate-800">45</div>
+                       <div className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mt-1">Soal (40 PG + 5 Essay)</div>
                     </div>
                     <div className="p-5 bg-white/80 rounded-2xl border border-yellow-100 shadow-sm backdrop-blur-sm">
                        <div className="text-3xl font-black text-slate-800">75</div>
@@ -385,12 +400,20 @@ const Classmates: React.FC = () => {
                    </div>
                  ) : (
                    <div className="text-center">
+                     {/* DEADLINE TIMER (NEW) */}
+                     {isExamOpen && deadlineTimer !== 'AKSES DITUTUP' && (
+                        <div className="inline-block mb-6 px-6 py-2 bg-red-50 text-red-600 rounded-full border border-red-100 animate-pulse">
+                           <span className="text-[10px] font-black uppercase tracking-widest mr-2">Sisa Waktu Akses Hari Ini:</span>
+                           <span className="font-mono font-bold text-lg">{deadlineTimer}</span>
+                        </div>
+                     )}
+
                      {isExamOpen ? (
                         <a 
                           href="#/exam" 
                           target="_blank" 
                           rel="noreferrer"
-                          className="inline-flex items-center justify-center gap-3 px-12 py-4 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-2xl font-bold shadow-xl shadow-orange-500/30 hover:scale-105 transition-transform animate-pulse"
+                          className="inline-flex items-center justify-center gap-3 px-12 py-4 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-2xl font-bold shadow-xl shadow-orange-500/30 hover:scale-105 transition-transform"
                         >
                            <PlayCircle size={24} />
                            MULAI UJIAN SEKARANG
@@ -567,7 +590,6 @@ const Classmates: React.FC = () => {
         isOpen={showExamResults} 
         onClose={() => setShowExamResults(false)}
         examId={activeExamId}
-        classId={selectedClassId || ''}
       />
     </div>
   );

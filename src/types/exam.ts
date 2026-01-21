@@ -29,6 +29,7 @@ export interface StudentExamSession {
   startTime: number; // Timestamp mulai (ms)
   endTime: number;   // Timestamp wajib selesai (ms)
   answers: Record<string, any>; // Key: QuestionID, Value: SelectedIndex (number) OR Link (string)
+  completedTopics?: string[];   // DAFTAR MODUL SELESAI (Disimpan di Cloud)
   status: 'IN_PROGRESS' | 'SUBMITTED' | 'EXPIRED';
   finalScore?: number;
 }

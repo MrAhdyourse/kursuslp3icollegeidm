@@ -1,811 +1,605 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, CheckCircle, ChevronLeft, ChevronRight, List, FileSpreadsheet, FileText, Presentation, FolderOpen, Layers, Award, ArrowRightCircle } from 'lucide-react';
-import { doc, onSnapshot, getDoc } from 'firebase/firestore';
-import { db } from '../services/firebase';
-import { useAuth } from '../context/AuthContext';
+import { 
+  CheckCircle, ChevronLeft, ChevronRight, 
+  FileSpreadsheet, FileText, Presentation, FolderOpen, 
+  Layers, Award, Lock, ArrowRightCircle
+} from 'lucide-react';import { useAuth } from '../context/AuthContext';
 import { examService } from '../services/examService';
+import { db } from '../services/firebase';
+import { doc, onSnapshot, updateDoc, setDoc } from 'firebase/firestore';
 import type { ExamConfig, StudentExamSession } from '../types/exam';
 import toast from 'react-hot-toast';
+
+// --- KONSTANTA ---
+const EXAM_ID = 'GLOBAL_UJIKOM';
+const LEVEL_ORDER = ['EXCEL', 'WORD', 'PPT', 'ARSIP', 'PRAKTIKUM'];
 
 const ExamRoom: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  
-  // State
-  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
-  const [exam, setExam] = useState<ExamConfig | null>(null);
+
+  // --- STATE SEDERHANA (HANYA UI) ---
+  const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<StudentExamSession | null>(null);
+  const [exam, setExam] = useState<ExamConfig | null>(null);
+  
+  // State UI Lokal
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [currentQIndex, setCurrentQIndex] = useState(0);
-  const [timeLeft, setTimeLeft] = useState<number>(180 * 60); 
-  const [loading, setLoading] = useState(false);
-  const [answers, setAnswers] = useState<Record<string, any>>({});
-  const [completedTopics, setCompletedTopics] = useState<string[]>([]);
+  const [timeLeft, setTimeLeft] = useState<number>(180 * 60);
+  const [showSuccessModal, setShowSuccessModal] = useState(false); // Modal Selamat
 
-  // --- URUTAN LEVEL ESTAFET ---
-  const LEVEL_ORDER = ['EXCEL', 'WORD', 'PPT', 'ARSIP', 'PRAKTIKUM'];
+  // State Input Nama (Gatekeeper)
+  const [needsName, setNeedsName] = useState(false);
+  const [tempName, setTempName] = useState('');
+  const [showTips, setShowTips] = useState(false); // Modal Tips & Trik
 
-  // --- 1. INITIALIZE & REAL-TIME SYNC (AUTO RESET) ---
+  // --- STATE ---
+  const [isExpired, setIsExpired] = useState(false);
+
+  // --- 1. CORE ENGINE: SINGLE SOURCE OF TRUTH (FIRESTORE) ---
   useEffect(() => {
-    window.history.pushState(null, "", window.location.href);
-    const handlePopState = () => {
-      window.history.pushState(null, "", window.location.href);
-      toast.error("Anda tidak bisa keluar selama ujian berlangsung!", { icon: '🔒' });
-    };
-    window.addEventListener('popstate', handlePopState);
-
     if (!user) return;
+    const DOC_ID = `${EXAM_ID}_${user.uid}`;
 
-    let unsubscribe = () => {};
-
-        const initSession = async () => {
-
-          const EXAM_ID = 'GLOBAL_UJIKOM';
-
-          const DOC_ID = `${EXAM_ID}_${user.uid}`;
-
-          const STORAGE_KEY = `ujikom_end_time_${user.uid}`;
-
-          const COMPLETED_KEY = `ujikom_completed_${user.uid}`;
-
-          
-
-          // 1. CEK STATUS FIRESTORE DULU (SEBELUM BUAT SESI BARU)
-
-          // Ini kunci perbaikan Reset!
-
-          try {
-
-            const docRef = doc(db, "exam_sessions", DOC_ID);
-
-            const docSnap = await getDoc(docRef);
-
-            const localDataExists = localStorage.getItem(COMPLETED_KEY) || localStorage.getItem(STORAGE_KEY);
-
+    // ATURAN 1: DEADLINE HARIAN (23:59:59 HARI INI)
+    // Dalam produksi, tanggal ini bisa diambil dari ExamConfig
+    const deadline = new Date();
+    deadline.setHours(23, 59, 59, 999);
     
+    if (Date.now() > deadline.getTime()) {
+       setIsExpired(true);
+       return;
+    }
 
-            // SKENARIO: ADMIN HAPUS DATA (RESET), TAPI SISWA MASIH PUNYA DATA LOKAL
+    setLoading(true);
 
-            if (!docSnap.exists() && localDataExists) {
-
-                console.log("⚠️ DETEKSI RESET ADMIN: Server Kosong, Lokal Ada. MELAKUKAN PEMBERSIHAN...");
-
-                
-
-                // HAPUS SEMUA JEJAK LOKAL
-
-                Object.keys(localStorage).forEach(key => {
-
-                   if (key.startsWith('ujikom_') || key.includes('exam_sessions')) {
-
-                      localStorage.removeItem(key);
-
-                   }
-
-                });
-
-                
-
-                setCompletedTopics([]);
-
-                setAnswers({});
-
-                setSession(null);
-
-                
-
-                toast.error("Instruktur telah mereset ujian. Memulai ulang...", { duration: 3000 });
-
-                
-
-                // RELOAD WAJIB (Agar state React bersih total)
-
-                setTimeout(() => window.location.reload(), 1000);
-
-                return; // STOP DI SINI. JANGAN LANJUT.
-
-            }
-
-          } catch (e) {
-
-            console.warn("Gagal cek status awal:", e);
-
-          }
-
-    
-
-          // 2. LISTEN KE FIRESTORE (REAL-TIME PROTECTOR)
-
-          unsubscribe = onSnapshot(doc(db, "exam_sessions", DOC_ID), (docSnap) => {
-
-             // JIKA TIBA-TIBA DIHAPUS SAAT SEDANG UJIAN
-
-             if (!docSnap.exists()) {
-
-                 // Cek lagi apakah kita sedang punya sesi aktif di memori?
-
-                 if (session || localStorage.getItem(COMPLETED_KEY)) {
-
-                     console.log("⚠️ LIVE RESET DETECTED!");
-
-                     Object.keys(localStorage).forEach(key => {
-
-                       if (key.startsWith('ujikom_') || key.includes('exam_sessions')) {
-
-                          localStorage.removeItem(key);
-
-                       }
-
-                    });
-
-                    setTimeout(() => window.location.reload(), 500);
-
-                 }
-
-             } else {
-
-                 // Resume Data
-
-                 const cloudData = docSnap.data() as StudentExamSession;
-
-                 setSession(cloudData);
-
-                 if (cloudData.answers) setAnswers(cloudData.answers);
-
-                 
-
-                 // Sync Completed
-
-                 const savedCompleted = localStorage.getItem(COMPLETED_KEY);
-
-                 if (savedCompleted) setCompletedTopics(JSON.parse(savedCompleted));
-
-             }
-
-          });
-
+    // Listener Real-time
+    const unsubscribe = onSnapshot(doc(db, "exam_sessions", DOC_ID), async (docSnap) => {
+       if (!docSnap.exists()) {
+          // KASUS 1: DATA TIDAK ADA (BELUM MULAI / DI-RESET ADMIN)
+          console.log("Status: No Session (Reset/New)");
+          setSession(null);
+          setExam(null);
+          setNeedsName(true); 
+          setLoading(false);
+       } else {
+          // KASUS 2: DATA ADA (SYNC)
+          const data = docSnap.data() as StudentExamSession;
           
-
-          // Timer Setup
-
-          let endTime = Number(localStorage.getItem(STORAGE_KEY));
-
-          if (!endTime || endTime < Date.now()) {
-
-            endTime = Date.now() + (180 * 60 * 1000);
-
-            localStorage.setItem(STORAGE_KEY, endTime.toString());
-
-          }
-
-          
-
-          // 3. FORCE INIT (HANYA JIKA TIDAK DI-RESET)
-
-          if (!session) {
-
-             const freshExamData: any = { id: EXAM_ID, durationMinutes: 180 };
-
+          // ATURAN 2: STRICT ONE-TIME SUBMISSION
+          // Jika status SUBMITTED, kita cek apakah ini 'Fresh Load' (baru masuk) atau 'Live Update' (baru selesai)
+          if (data.status === 'SUBMITTED') {
+             // LOGIKA BARU: Cek flag di sessionStorage untuk membedakan 'Baru Selesai' vs 'Login Ulang'
+             const justFinished = sessionStorage.getItem('JUST_FINISHED_EXAM');
              
-
-             // --- LOGIC PENENTUAN NAMA (ANTI-ANONYMOUS) ---
-
-             let studentName = user.displayName;
-
-             let studentNis = user.email || user.uid;
-
-    
-
-             if (!studentName && user.email) studentName = user.email.split('@')[0];
-
-    
-
-             // WAJIB INPUT NAMA JIKA KOSONG
-
-             if (!studentName || studentName.trim() === '' || studentName.includes('User')) {
-
-                let inputName = null;
-
-                // Gunakan Loop prompt yang agresif
-
-                while (!inputName || inputName.length < 3) {
-
-                   inputName = prompt("🔴 PENTING: Masukkan NAMA LENGKAP Anda untuk Lembar Ujian.\n(Minimal 3 huruf)");
-
-                   if (inputName) studentName = inputName.trim();
-
-                }
-
+             if (!justFinished) {
+                // Jika bukan baru selesai (berarti login ulang), tendang ke laporan
+                toast("Anda sudah menyelesaikan ujian ini.", { icon: '🔒' });
+                navigate('/reports'); 
+                return;
              }
-
-             
-
-             examService.startExam(user.uid, freshExamData, { 
-
-                name: studentName || 'Siswa Tanpa Nama', 
-
-                nis: studentNis 
-
-             });
-
+             // Jika justFinished ada, berarti dia baru saja submit. Biarkan Modal Selamat muncul.
+          }
+          
+          // Cek Nama (Double Protection)
+          if (!data.studentName || data.studentName === 'Peserta') {
+             setNeedsName(true);
+          } else {
+             setNeedsName(false);
           }
 
-        };    initSession();
+          setSession(data);
+
+          // Hitung Mundur Server-Side
+          const now = Date.now();
+          const remaining = Math.max(0, Math.ceil((data.endTime - now) / 1000));
+          setTimeLeft(remaining);
+          
+          setLoading(false);
+       }
+    }, (error) => {
+       console.error("Connection Error:", error);
+       toast.error("Koneksi terputus. Mencoba menghubungkan...");
+    });
+
+    // Timer Interval (Hanya untuk update UI per detik)
+    const timerInterval = setInterval(() => {
+       setTimeLeft((prev) => Math.max(0, prev - 1));
+    }, 1000);
 
     return () => {
-      window.removeEventListener('popstate', handlePopState);
-      unsubscribe();
+       unsubscribe();
+       clearInterval(timerInterval);
     };
   }, [user]);
 
-  // --- 2. TIMER ENGINE ---
-  useEffect(() => {
-    if (!session) return;
+  // --- 2. ACTIONS: CREATE SESSION (SETELAH INPUT NAMA) ---
+  const handleCreateSession = async () => {
+     if (!user || !tempName.trim()) {
+        toast.error("Nama wajib diisi!");
+        return;
+     }
 
-    const timer = setInterval(() => {
-      const now = Date.now();
-      const remaining = Math.max(0, Math.ceil((session.endTime - now) / 1000));
-      
-      setTimeLeft(remaining);
-
-      if (remaining <= 0) {
-        clearInterval(timer);
-        toast.error("WAKTU HABIS! Jawaban dikunci.", { duration: 5000, icon: '🛑' });
-        setTimeout(() => {
-           forceFinalSubmit(); 
-        }, 1000);
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session]);
-
-  // --- HELPER: DETEKSI KATEGORI ---
-  const getCategoryInfo = (questionId: string) => {
-    if (questionId.startsWith('EXCEL')) return { label: 'MICROSOFT EXCEL', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: FileSpreadsheet };
-    if (questionId.startsWith('WORD')) return { label: 'MICROSOFT WORD', color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', icon: FileText };
-    if (questionId.startsWith('PPT')) return { label: 'POWERPOINT', color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', icon: Presentation };
-    if (questionId.startsWith('ARSIP')) return { label: 'KEARSIPAN', color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200', icon: FolderOpen };
-    if (questionId.startsWith('ESSAY')) return { label: 'UJIAN PRAKTIKUM', color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-200', icon: Award };
-    return { label: 'UMUM', color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-200', icon: Layers };
+     setLoading(true);
+     try {
+        const dummyExamData: any = { id: EXAM_ID, durationMinutes: 180 };
+        await examService.startExam(user.uid, dummyExamData, {
+           name: tempName,
+           nis: user.email || user.uid
+        });
+        setLoading(false);
+        setShowTips(true); // TAMPILKAN TIPS DULU SEBELUM LOBBY
+     } catch (e) {
+        toast.error("Gagal memulai ujian. Cek koneksi.");
+        setLoading(false);
+     }
   };
 
-  const handleStartExam = async (topic: string) => {
+  // --- 3. ACTIONS: LOAD SOAL ---
+  const handleStartTopic = async (topic: string) => {
     setLoading(true);
-    setSelectedTopic(topic);
-    setCurrentQIndex(0); 
-
     try {
       const userProgram = (user as any)?.program || "Administrasi Perkantoran"; 
       const examData = await examService.getExamByProgram(userProgram, topic);
-
-      if (!examData || examData.questions.length === 0) {
-        alert(`Soal untuk ${topic} belum tersedia.`);
-        setLoading(false);
-        return;
-      }
-
       setExam(examData);
-      setLoading(false);
-    } catch (error) {
-      console.error("Error:", error);
-      setLoading(false);
-    }
-  };
-
-  const markTopicAsCompleted = (topic: string) => {
-    setCompletedTopics(prev => {
-      const updated = prev.includes(topic) ? prev : [...prev, topic];
-      if (user) {
-        localStorage.setItem(`ujikom_completed_${user.uid}`, JSON.stringify(updated));
-      }
-      return updated;
-    });
-  };
-
-  const handleNextLevel = async () => {
-    if (!selectedTopic) return;
-    
-    markTopicAsCompleted(selectedTopic);
-
-    const currentIndex = LEVEL_ORDER.indexOf(selectedTopic);
-    if (currentIndex >= 0 && currentIndex < LEVEL_ORDER.length - 1) {
-      const nextTopic = LEVEL_ORDER[currentIndex + 1];
-      
-      toast.success(`Modul ${selectedTopic} Selesai! Melanjutkan ke ${nextTopic}...`, {
-        icon: '🚀',
-        style: { background: '#10B981', color: '#fff' }
-      });
-
-      await handleStartExam(nextTopic); 
-    } else {
-      handleSubmit();
-    }
-  };
-
-  const handleAnswer = async (questionId: string, value: any) => {
-    if (!session) return;
-    setAnswers(prev => ({ ...prev, [questionId]: value }));
-    // Simpan ke Service (bisa number atau string)
-    await examService.saveAnswer(session.id, questionId, value);
-  };
-
-  const handleSubmit = async (isAuto = false) => {
-    if (!isAuto && !confirm("Simpan jawaban modul ini dan kembali ke Menu Ujian?")) return;
-    if (!session) return;
-
-    setLoading(true);
-    if (exam) {
-       await examService.submitExam({ ...session, answers }, exam.questions);
-    }
-    
-    if (selectedTopic) {
-       markTopicAsCompleted(selectedTopic);
-    }
-
-    toast.success("Jawaban Tersimpan! Silakan lanjutkan modul lain atau cek progres Anda.", { duration: 4000 });
-    
-    setExam(null);
-    setSelectedTopic(null);
-    setLoading(false);
-  };
-
-  const forceFinalSubmit = async () => {
-    if (!session) return;
-    setLoading(true);
-    const toastId = toast.loading("Menyerahkan seluruh jawaban...");
-
-    try {
-      // 1. Ambil Data Soal Lengkap (OMNIBUS) untuk Kalkulasi Skor Akhir
-      const omnibusExam = await examService.getExamByProgram((user as any)?.program || 'Administrasi Perkantoran', 'OMNIBUS');
-      
-      // 2. Update Session dengan Jawaban Terakhir
-      const finalSession = { ...session, answers };
-      
-      // 3. Submit ke Service (Local + Firebase Sync)
-      if (omnibusExam && omnibusExam.questions) {
-        await examService.submitExam(finalSession, omnibusExam.questions);
-      } else {
-        // Fallback jika gagal load soal (tetap submit status)
-        await examService.submitExam(finalSession, []); 
-      }
-
-      toast.success("Ujian Selesai! Terima kasih.", { id: toastId });
-      
-      // 4. Redirect
-      navigate('/reports');
-    } catch (error) {
-      console.error("Final Submit Error:", error);
-      toast.error("Gagal menyerahkan ujian. Coba lagi.", { id: toastId });
+      setSelectedTopic(topic);
+      setCurrentQIndex(0);
+    } catch (e) {
+      toast.error("Gagal memuat soal.");
     } finally {
       setLoading(false);
     }
   };
 
+  // --- 4. ACTIONS: JAWAB & KIRIM LANGSUNG (DIRECT STREAM) ---
+  const handleAnswer = async (qId: string, val: any) => {
+     if (!session || !user) return; 
+     
+     // Optimistic UI Update (Agar terasa cepat)
+     const newAnswers = { ...session.answers, [qId]: val };
+     setSession({ ...session, answers: newAnswers });
+
+     // KIRIM KE SERVER DETIK ITU JUGA (Background)
+     try {
+        const docRef = doc(db, "exam_sessions", `${EXAM_ID}_${user.uid}`);
+        await updateDoc(docRef, {
+           [`answers.${qId}`]: val
+        });
+     } catch (e) {
+        console.error("Gagal simpan jawaban:", e);
+        toast.error("Gagal menyimpan jawaban! Cek koneksi internet.");
+     }
+  };
+
+  // --- 5. ACTIONS: MARK COMPLETED & FINISH ---
+  const handleCompleteTopic = async (topic: string) => {
+     if (!session || !user) return;
+
+     const currentCompleted = session.completedTopics || [];
+     if (!currentCompleted.includes(topic)) {
+        const updated = [...currentCompleted, topic];
+        const docRef = doc(db, "exam_sessions", `${EXAM_ID}_${user.uid}`);
+        await updateDoc(docRef, { completedTopics: updated });
+        toast.success(`Modul ${topic} Selesai!`);
+     }
+     
+     // Pindah ke next topic atau menu
+     setSelectedTopic(null);
+     setExam(null);
+  };
+
+  const handleFinalSubmit = async () => {
+     if (!confirm("KIRIM SEMUA JAWABAN KE INSTRUKTUR?\n\nPastikan semua file sudah terupload. Aksi ini tidak bisa dibatalkan.")) return;
+     if (!session || !user) return;
+
+     setLoading(true);
+     try {
+        // AMBIL STATE TERBARU (Dari session.answers karena kita update session saat jawab)
+        const currentAnswers = session.answers || {};
+        
+        console.log("FINAL SUBMIT PAYLOAD:", currentAnswers); // Debug di console siswa
+
+        // 1. SYNC PAKSA KE FIRESTORE (DOUBLE TAP)
+        // Gunakan setDoc merge untuk memastikan semua jawaban masuk
+        const docRef = doc(db, "exam_sessions", `${EXAM_ID}_${user.uid}`);
+        await setDoc(docRef, { 
+           answers: currentAnswers,
+           status: 'SUBMITTED', // Sekalian kunci
+           submittedAt: new Date().toISOString()
+        }, { merge: true });
+
+        // 2. Set Flag agar tidak auto-redirect oleh onSnapshot (UI Handling)
+        sessionStorage.setItem('JUST_FINISHED_EXAM', 'true');
+
+        // 3. Service Call (Untuk scoring/rekap tambahan jika ada logic di sana)
+        const omnibus = await examService.getExamByProgram('Administrasi Perkantoran', 'OMNIBUS');
+        await examService.submitExam({ ...session, answers: currentAnswers }, omnibus?.questions || []);
+        
+        setLoading(false);
+        setShowSuccessModal(true); 
+     } catch (e) {
+        console.error("Final Submit Error:", e);
+        toast.error("Gagal mengirim. Periksa koneksi internet Anda!");
+        setLoading(false);
+     }
+  };
+
+
+  // --- HELPERS UI ---
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
-    return `${h > 0 ? h + ':' : ''}${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`;
+    return `${h}:${m < 10 ? '0'+m : m}:${s < 10 ? '0'+s : s}`;
   };
 
-  const handleSmartNext = () => {
-    if (!exam) return;
-    const currentQ = exam.questions[currentQIndex];
-    const nextQ = exam.questions[currentQIndex + 1];
-
-    if (nextQ) {
-       const currentCat = getCategoryInfo(currentQ.id).label;
-       const nextCat = getCategoryInfo(nextQ.id).label;
-       if (currentCat !== nextCat) {
-          toast(`Sesi ${currentCat} Selesai! Masuk ke ${nextCat}.`, { icon: '🚀' });
-       }
-    }
-    setCurrentQIndex(i => i + 1);
+  const getCategoryInfo = (questionId: string) => {
+    if (questionId.startsWith('EXCEL')) return { label: 'MICROSOFT EXCEL', icon: FileSpreadsheet, color: 'text-emerald-600', bg: 'bg-emerald-50' };
+    if (questionId.startsWith('WORD')) return { label: 'MICROSOFT WORD', icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' };
+    if (questionId.startsWith('PPT')) return { label: 'POWERPOINT', icon: Presentation, color: 'text-orange-600', bg: 'bg-orange-50' };
+    if (questionId.startsWith('ARSIP')) return { label: 'KEARSIPAN', icon: FolderOpen, color: 'text-purple-600', bg: 'bg-purple-50' };
+    if (questionId.startsWith('ESSAY')) return { label: 'PRAKTIKUM', icon: Award, color: 'text-indigo-600', bg: 'bg-indigo-50' };
+    return { label: 'UMUM', icon: Layers, color: 'text-slate-600', bg: 'bg-slate-50' };
   };
 
-  // Prevent Tab Close
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (session) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [session]);
 
-  // --- RENDERS ---
+  // --- RENDER 1: LOADING & NAME INPUT ---
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white"><div className="animate-spin h-10 w-10 border-4 border-blue-500 rounded-full border-t-transparent"></div></div>;
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white font-sans">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-emerald-500 mb-6"></div>
-        <h2 className="text-xl font-bold tracking-widest animate-pulse uppercase">Memproses...</h2>
-      </div>
-    );
+  if (isExpired) {
+     return (
+        <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-center p-6 text-white font-sans">
+           <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center mb-6 animate-pulse">
+              <Lock size={48} className="text-red-500" />
+           </div>
+           <h1 className="text-3xl font-black mb-2 tracking-tight">AKSES DITUTUP</h1>
+           <p className="text-slate-400 max-w-md mb-8 leading-relaxed">
+              Batas waktu akses ujian hari ini (23:59 WIB) telah berakhir. <br/>Silakan hubungi instruktur jika Anda mengalami kendala teknis.
+           </p>
+           <button onClick={() => navigate('/')} className="px-8 py-3 bg-slate-800 rounded-xl font-bold hover:bg-slate-700 transition">
+              Kembali ke Dashboard
+           </button>
+        </div>
+     )
   }
 
-  if (!exam || !session) {
-    const userProgram = (user as any)?.program || "Administrasi Perkantoran";
-
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
-        <header className="bg-white border-b border-slate-200 px-8 py-6 flex justify-between items-center shadow-sm sticky top-0 z-50">
-          <div className="flex items-center gap-4">
-            <div className="bg-blue-600 p-2.5 rounded-2xl shadow-lg shadow-blue-200">
-               <Award className="text-white" size={28} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black text-slate-800 tracking-tight leading-none">
-                Ujian Kompetensi (Ujikom)
-              </h1>
-              <p className="text-slate-500 text-[10px] font-bold mt-1.5 flex items-center gap-2">
-                <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider">{userProgram}</span>
-                <span className="text-slate-300">|</span>
-                <span>LP3I College Indramayu</span>
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-6">
-            {/* TOMBOL KIRIM FINAL DI HEADER (CEPAT) */}
-            {completedTopics.length > 0 && (
-              <button 
-                onClick={() => {
-                  const isAllDone = LEVEL_ORDER.every(topic => completedTopics.includes(topic));
-                  if(confirm(isAllDone ? "Yakin ingin menyerahkan seluruh hasil ujian?" : "Anda belum menyelesaikan semua modul. Yakin ingin mengirim hasil yang ada saja?")) {
-                    forceFinalSubmit();
-                  }
-                }}
-                className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold shadow-xl hover:bg-emerald-700 hover:scale-105 transition-all flex items-center gap-2 animate-bounce-slow"
-              >
-                <ArrowRightCircle size={20} /> KIRIM HASIL AKHIR
-              </button>
-            )}
-
-            <div className="flex flex-col items-end">
-               <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Sisa Waktu Global</span>
-               <div className={`flex items-center gap-2 px-4 py-1.5 rounded-lg font-mono text-xl font-black border-2 ${timeLeft < 300 ? 'bg-red-50 border-red-200 text-red-600 animate-pulse' : 'bg-slate-50 border-slate-100 text-slate-700'}`}>
-                 <Clock size={18} /> {formatTime(timeLeft)}
-               </div>
-            </div>
-            <div className="hidden md:flex items-center gap-2 text-red-500 font-bold text-[10px] bg-red-50 px-3 py-2 rounded-lg border border-red-100">
-              <div className="animate-pulse"><div className="w-2 h-2 bg-red-500 rounded-full"></div></div>
-              TERKUNCI
-            </div>
-          </div>
-        </header>
-
-        <main className="flex-1 max-w-6xl mx-auto w-full p-8">
-          <div className="mb-12 text-center">
-            <h2 className="text-3xl font-bold mb-2">Pilih Kategori Ujian</h2>
-            <p className="text-slate-500 max-w-2xl mx-auto">Waktu berjalan secara realtime. Silakan pilih modul yang ingin dikerjakan terlebih dahulu.</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            {[
-              { id: 'EXCEL', label: 'Excel', desc: 'Level 1 - Formula', icon: FileSpreadsheet, color: 'emerald' },
-              { id: 'WORD', label: 'Word', desc: 'Level 2 - Documents', icon: FileText, color: 'blue' },
-              { id: 'PPT', label: 'PowerPoint', desc: 'Level 3 - Visual', icon: Presentation, color: 'orange' },
-              { id: 'ARSIP', label: 'Kearsipan', desc: 'Level 4 - Filing', icon: FolderOpen, color: 'purple' },
-              { id: 'PRAKTIKUM', label: 'Praktikum', desc: 'Level 5 - Upload', icon: Award, color: 'indigo' }
-            ].map((cat) => {
-              const isDone = completedTopics.includes(cat.id);
-              const Icon = cat.icon;
-              return (
-                <button 
-                  key={cat.id}
-                  disabled={isDone}
-                  onClick={() => handleStartExam(cat.id)}
-                  className={`group p-8 rounded-[2rem] border transition-all flex flex-col items-center text-center relative overflow-hidden ${
-                    isDone ? 'bg-emerald-50 border-emerald-200 cursor-not-allowed opacity-80' : 'bg-white border-slate-200 hover:shadow-2xl hover:-translate-y-2'
-                  }`}
-                >
-                  <div className={`absolute top-0 left-0 w-full h-2 bg-${isDone ? 'emerald' : cat.color}-500`}></div>
-                  <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mb-6 ${isDone ? 'bg-emerald-100 text-emerald-600' : `bg-${cat.color}-50 text-${cat.color}-600`} group-hover:scale-110 transition-transform`}>
-                    {isDone ? <CheckCircle size={40} /> : <Icon size={40} />}
-                  </div>
-                  <h3 className="text-xl font-black text-slate-800 mb-1">{cat.label}</h3>
-                  <p className="text-xs text-slate-400 font-medium mb-6">{isDone ? 'Terekam di Sistem' : cat.desc}</p>
-                  <span className={`text-[10px] font-black px-4 py-2 rounded-full uppercase tracking-[0.2em] ${isDone ? 'bg-emerald-200 text-emerald-800' : `bg-${cat.color}-50 text-${cat.color}-600`}`}>
-                    {isDone ? 'SELESAI' : 'Mulai'}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-12 flex flex-col items-center gap-6">
-             {/* TOMBOL FINAL SUBMIT (JIKA MINIMAL 1 SELESAI) */}
-             {completedTopics.length > 0 && (
-               <div className="w-full max-w-2xl bg-emerald-50 border-2 border-emerald-200 rounded-3xl p-8 text-center animate-fade-in-up">
-                 <h3 className="text-2xl font-black text-emerald-700 mb-2 flex items-center justify-center gap-2">
-                   <CheckCircle size={32} /> KONFIRMASI SELESAI
-                 </h3>
-                 <p className="text-emerald-600 mb-6 font-medium">
-                   {LEVEL_ORDER.every(topic => completedTopics.includes(topic)) 
-                     ? "Anda telah menyelesaikan semua tahapan ujian." 
-                     : "Anda baru menyelesaikan sebagian modul. Yakin ingin menyerahkan sekarang?"}
-                 </p>
-                 <button 
-                   onClick={() => {
-                     const isPartial = !LEVEL_ORDER.every(topic => completedTopics.includes(topic));
-                     const msg = isPartial 
-                       ? "PERHATIAN: Anda belum menyelesaikan semua modul. Yakin ingin menyerahkan hasil seadanya?" 
-                       : "Yakin ingin menyerahkan seluruh hasil ujian?";
-                     
-                     if(confirm(msg)) forceFinalSubmit();
-                   }}
-                   className="bg-emerald-600 text-white px-12 py-5 rounded-2xl font-bold shadow-xl hover:bg-emerald-700 hover:scale-105 transition-all flex items-center gap-3 mx-auto text-lg animate-pulse"
-                 >
-                   SERAHKAN JAWABAN & KELUAR <ArrowRightCircle size={24} />
-                 </button>
-               </div>
-             )}
-
-             <button onClick={() => handleStartExam('OMNIBUS')} className="bg-slate-900 text-white px-12 py-6 rounded-3xl flex items-center gap-5 hover:bg-slate-800 shadow-2xl transition-all hover:scale-105 group opacity-80 hover:opacity-100">
-              <Layers size={32} className="text-yellow-400 group-hover:rotate-12 transition-transform" />
-              <div className="text-left">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Opsi Tambahan</div>
-                <div className="text-xl font-black tracking-tight">OMNIBUS (Mode Campuran)</div>
+  if (needsName || !session) {
+     return (
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+           <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl animate-fade-in-up">
+              <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                 <UserIcon size={40} />
               </div>
-            </button>
-          </div>
-        </main>
-      </div>
-    );
+              <h2 className="text-2xl font-black text-slate-800 mb-2">Identitas Peserta</h2>
+              <p className="text-slate-500 mb-6 text-sm">Wajib mengisi nama lengkap sesuai KTP/Absen agar nilai tidak tertukar.</p>
+              
+              <input 
+                type="text" 
+                placeholder="Ketik Nama Lengkap Anda..."
+                className="w-full text-center text-lg font-bold border-2 border-slate-200 rounded-xl p-4 mb-4 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
+                value={tempName}
+                onChange={e => setTempName(e.target.value.toUpperCase())}
+                autoFocus
+              />
+              
+              <button 
+                onClick={handleCreateSession}
+                disabled={tempName.length < 3}
+                className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30"
+              >
+                 MULAI UJIAN SEKARANG
+              </button>
+           </div>
+        </div>
+     );
+  }
+
+  // --- RENDER 2: LOBBY UJIAN ---
+  if (!exam) {
+     const completed = session.completedTopics || [];
+     return (
+        <div className="min-h-screen bg-slate-50 font-sans pb-20">
+           {/* HEADER */}
+           <header className="bg-white px-6 py-4 border-b border-slate-200 sticky top-0 z-40 flex justify-between items-center shadow-sm">
+              <div>
+                 <h1 className="font-black text-xl text-slate-800">Ujikom 2026</h1>
+                 <p className="text-xs text-slate-500 font-bold">{session.studentName} | {session.studentNis}</p>
+              </div>
+              <div className="flex items-center gap-4">
+                 {/* TOMBOL KIRIM HASIL (Muncul jika ada progress) */}
+                 {completed.length > 0 && (
+                    <button onClick={handleFinalSubmit} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-bold animate-pulse hover:bg-emerald-700 shadow-lg shadow-emerald-500/30">
+                       KIRIM HASIL ({completed.length}/{LEVEL_ORDER.length})
+                    </button>
+                 )}
+                 <div className="bg-slate-900 text-white px-4 py-2 rounded-lg font-mono font-bold text-lg">
+                    {formatTime(timeLeft)}
+                 </div>
+              </div>
+           </header>
+
+           <main className="max-w-5xl mx-auto p-6">
+              <div className="text-center mb-10 mt-4">
+                 <h2 className="text-3xl font-black text-slate-800 mb-2">Pilih Modul Ujian</h2>
+                 <p className="text-slate-500">Status tersimpan otomatis di server.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                 {LEVEL_ORDER.map(topic => {
+                    const isDone = completed.includes(topic);
+                    // Mapping Info
+                    let label = topic;
+                    let color = 'bg-white';
+                    let text = 'text-slate-600';
+                    let Icon = Layers;
+                    
+                    if (topic === 'EXCEL') { label = 'Excel'; color = 'bg-emerald-50'; text = 'text-emerald-600'; Icon = FileSpreadsheet; }
+                    if (topic === 'WORD') { label = 'Word'; color = 'bg-blue-50'; text = 'text-blue-600'; Icon = FileText; }
+                    if (topic === 'PPT') { label = 'PowerPoint'; color = 'bg-orange-50'; text = 'text-orange-600'; Icon = Presentation; }
+                    if (topic === 'ARSIP') { label = 'Kearsipan'; color = 'bg-purple-50'; text = 'text-purple-600'; Icon = FolderOpen; }
+                    if (topic === 'PRAKTIKUM') { label = 'Praktikum'; color = 'bg-indigo-50'; text = 'text-indigo-600'; Icon = Award; }
+
+                    return (
+                       <button 
+                         key={topic}
+                         onClick={() => !isDone && handleStartTopic(topic)}
+                         disabled={isDone}
+                         className={`p-6 rounded-3xl border-2 transition-all flex flex-col items-center gap-4 relative overflow-hidden ${isDone ? 'border-emerald-200 bg-emerald-50 opacity-80' : 'border-slate-200 bg-white hover:border-blue-400 hover:shadow-xl hover:-translate-y-1'}`}
+                       >
+                          {isDone && <div className="absolute top-3 right-3 text-emerald-600"><CheckCircle size={24} /></div>}
+                          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDone ? 'bg-emerald-200 text-emerald-700' : `${color} ${text}`}`}>
+                             <Icon size={32} />
+                          </div>
+                          <div className="text-center">
+                             <div className="font-black text-lg text-slate-700">{label}</div>
+                             <div className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${isDone ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                {isDone ? 'SELESAI' : 'KERJAKAN'}
+                             </div>
+                          </div>
+                       </button>
+                    )
+                 })}
+              </div>
+
+              {/* TOMBOL OMNIBUS (OPSIONAL) */}
+              <div className="mt-12 text-center">
+                 <button onClick={() => handleStartTopic('OMNIBUS')} className="text-xs font-bold text-slate-400 hover:text-slate-600 underline">
+                    Mode OMNIBUS (Campuran)
+                 </button>
+              </div>
+           </main>
+        </div>
+     );
   }
 
   // --- RENDER 3: EXAM INTERFACE ---
-  if (!exam || !exam.questions || exam.questions.length === 0) return null;
-  const currentQ = exam.questions[currentQIndex];
-  if (!currentQ) return null;
-
-  const nextQ = exam.questions[currentQIndex + 1];
-  const currentCat = getCategoryInfo(currentQ.id || 'UMUM');
-  const nextCat = nextQ ? getCategoryInfo(nextQ.id || 'UMUM') : null;
-  const isSectionChange = nextCat && nextCat.label !== currentCat.label;
-  const CurrentIcon = currentCat.icon;
-  const todayDate = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+  const q = exam.questions[currentQIndex];
+  const cat = getCategoryInfo(q.id);
+  const QIcon = cat.icon;
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-800">
-      <div className="bg-slate-900 text-white px-8 py-4 flex justify-between items-center shadow-lg sticky top-0 z-50">
-        <div className="flex items-center gap-4">
-          <div className="bg-white/10 p-2 rounded-lg"><Award size={24} className="text-yellow-400" /></div>
-          <div>
-            <h1 className="font-black text-lg tracking-wide">Ujikom {new Date().getFullYear()}</h1>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">LP3I INDRAMAYU • {todayDate}</p>
-          </div>
-        </div>
-        
-        <div className="flex flex-col items-end">
-           <span className="text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-widest">Sisa Waktu Global</span>
-           <div className={`flex items-center gap-3 px-5 py-2 rounded-xl font-mono text-2xl font-black shadow-inner border-2 ${timeLeft < 300 ? 'bg-red-600 border-red-400 animate-pulse' : 'bg-slate-800 border-slate-700'}`}>
-             <Clock size={20} /> {formatTime(timeLeft)}
-           </div>
-        </div>
-
-        <button onClick={() => handleSubmit(false)} className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20">
-          <CheckCircle size={18} /> SELESAI UJIAN
-        </button>
-      </div>
-
-      <div className="flex-1 flex overflow-hidden flex-col lg:flex-row">
-        <div className="flex-1 p-8 overflow-y-auto">
-          <div className="max-w-4xl mx-auto bg-white rounded-[2.5rem] shadow-sm border border-slate-200 p-10 min-h-[500px] flex flex-col relative">
-            <div className={`mb-6 flex items-center gap-2 px-4 py-2 rounded-xl w-fit ${currentCat.bg} ${currentCat.color} border ${currentCat.border}`}>
-               <CurrentIcon size={16} />
-               <span className="text-xs font-black tracking-widest uppercase">{currentCat.label}</span>
-            </div>
-
-            <div className="flex justify-between items-center mb-6 border-b border-slate-50 pb-4">
-              <span className="text-xs font-black text-slate-300 uppercase tracking-widest">Soal {currentQIndex + 1} / {exam.questions.length}</span>
-              <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-1 rounded">{currentQ.points} Poin</span>
-            </div>
-
-            {currentQ.spreadsheetData && (
-              <div className="mb-8 overflow-x-auto border border-slate-300 rounded-xl shadow-sm">
-                <table className="w-full text-sm text-left border-collapse bg-white font-mono">
-                  <tbody>
-                    {currentQ.spreadsheetData.map((row, rIdx) => (
-                      <tr key={rIdx}>
-                        {row.map((cell, cIdx) => (
-                          <td key={cIdx} className={`border border-slate-300 px-4 py-2 ${rIdx === 0 || cIdx === 0 ? 'bg-slate-100 font-bold text-slate-600' : 'text-slate-800'}`}>{cell}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            <h2 className="text-xl md:text-2xl font-bold text-slate-800 leading-relaxed mb-10">{currentQ.text}</h2>
-
-            {currentQ.type === 'ESSAY' ? (
-              <div className="space-y-6">
-                 {/* 1. SEKSI GOOGLE DRIVE (WAJIB) */}
-                 <div className="bg-orange-50 p-6 rounded-3xl border border-orange-200">
-                    <h3 className="font-black text-orange-700 mb-2 flex items-center gap-2">
-                       <FolderOpen size={20} /> LANGKAH 1: UPLOAD KE GOOGLE DRIVE
-                    </h3>
-                    <p className="text-sm text-orange-800 mb-4">
-                       Instruktur mewajibkan seluruh file jawaban dikumpulkan ke Folder Drive Bersama ini agar tidak hilang.
-                    </p>
-                    <a 
-                      href="https://drive.google.com/drive/folders/1EUD6nuCcUDlcINxLw__fjZOQ6Mx7BVGO?usp=drive_link" 
-                      target="_blank" 
-                      rel="noreferrer"
-                      className="block w-full bg-orange-600 text-white text-center py-4 rounded-xl font-bold hover:bg-orange-700 transition shadow-lg shadow-orange-200 mb-2 animate-pulse"
-                    >
-                       BUKA FOLDER PENGUMPULAN DRIVE ↗
-                    </a>
-                    <div className="text-[10px] text-center text-orange-600 font-bold">
-                       *Pastikan nama file Anda mengandung NAMA LENGKAP
-                    </div>
-                 </div>
-
-                 {/* 2. SEKSI KONFIRMASI SISTEM */}
-                 <div className="bg-blue-50 p-8 rounded-3xl border-2 border-dashed border-blue-200 text-center hover:bg-blue-100/50 transition-colors relative">
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-blue-200">
-                     Langkah 2: Konfirmasi Upload
-                  </div>
-
-                {answers[currentQ.id] ? (
-                  <div className="flex flex-col items-center animate-fade-in-up pt-4">
-                    <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
-                      <CheckCircle size={32} />
-                    </div>
-                    <h3 className="font-bold text-slate-800 text-lg mb-1">File Terkonfirmasi!</h3>
-                    <p className="text-xs text-slate-500 mb-4">Anda telah mengupload bukti ke sistem.</p>
-                    <a href={answers[currentQ.id]} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm font-medium mb-6 break-all max-w-md truncate">
-                      Lihat File Backup
-                    </a>
-                    <button 
-                      onClick={() => handleAnswer(currentQ.id, null)} // Reset answer
-                      className="px-6 py-2 bg-white border border-red-200 text-red-600 rounded-xl text-xs font-bold hover:bg-red-50 transition"
-                    >
-                      Ganti File
-                    </button>
-                  </div>
-                ) : (
-                  <div className="pt-4">
-                    <input 
-                      type="file" 
-                      id={`file-${currentQ.id}`}
-                      className="hidden"
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        
-                        // VALIDASI 7MB
-                        if (file.size > 7 * 1024 * 1024) {
-                          toast.error("File terlalu besar! Maksimal 7MB.");
-                          return;
-                        }
-
-                        setLoading(true);
-                        const toastId = toast.loading("Mengupload backup ke sistem...");
-                        
-                        try {
-                          const url = await examService.uploadExamFile(file, user?.uid || 'guest', session?.examId || 'exam', currentQ.id);
-                          await handleAnswer(currentQ.id, url);
-                          toast.success("Upload Sukses! Jawaban tersimpan.", { id: toastId });
-                        } catch (err) {
-                          console.error(err);
-                          toast.error("Gagal upload backup. Coba lagi.", { id: toastId });
-                        } finally {
-                          setLoading(false);
-                        }
-                      }}
-                    />
-                    <label htmlFor={`file-${currentQ.id}`} className="cursor-pointer flex flex-col items-center">
-                      <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-4 shadow-md group-hover:scale-110 transition-transform">
-                         {loading ? <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div> : <FolderOpen size={32} className="text-blue-500" />}
-                      </div>
-                      <h3 className="font-bold text-slate-700 text-lg mb-1">Upload Backup File</h3>
-                      <p className="text-slate-400 text-sm mb-4">Wajib upload ulang di sini sebagai bukti sistem.</p>
-                      <span className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition">
-                        Pilih File Komputer
-                      </span>
-                    </label>
-                  </div>
-                )}
-              </div>
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+       {/* EXAM HEADER */}
+       <div className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center sticky top-0 z-50 shadow-sm">
+          <div className="flex items-center gap-4">
+             <button onClick={() => setExam(null)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500">
+                <ChevronLeft size={24} />
+             </button>
+             <div className={`px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-2 ${cat.bg} ${cat.color}`}>
+                <QIcon size={14} /> {cat.label}
              </div>
-            ) : (
-              <div className="space-y-4">
-                {currentQ.options.map((opt, idx) => {
-                  const isSelected = answers[currentQ.id] === idx;
-                  return (
-                    <button key={idx} onClick={() => handleAnswer(currentQ.id, idx)} className={`w-full text-left p-6 rounded-2xl border-2 transition-all flex items-center gap-5 group ${isSelected ? 'border-blue-500 bg-blue-50 text-blue-900 shadow-md' : 'border-slate-100 hover:border-blue-200 hover:bg-slate-50 text-slate-600'}`}>
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-base border-2 flex-shrink-0 ${isSelected ? 'bg-blue-500 text-white border-blue-500' : 'bg-white border-slate-300 text-slate-400 group-hover:border-blue-300'}`}>{String.fromCharCode(65 + idx)}</div>
-                      <span className="font-bold text-lg">{opt}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+          </div>
+          <div className="font-mono font-bold text-slate-800 text-lg">
+             {formatTime(timeLeft)}
+          </div>
+       </div>
 
-            <div className="mt-auto pt-10 flex justify-between items-center border-t border-slate-100">
-              <button disabled={currentQIndex === 0} onClick={() => setCurrentQIndex(i => i - 1)} className="flex items-center gap-2 text-slate-400 font-bold hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed">
-                <ChevronLeft size={20} /> Sebelumnya
-              </button>
-              
-              {(() => {
-                const isLastQuestion = currentQIndex === exam.questions.length - 1;
-                const isOmnibus = selectedTopic === 'OMNIBUS';
-                // Cek apakah topik saat ini adalah yang terakhir di LEVEL_ORDER (PRAKTIKUM)
-                const isFinalLevel = selectedTopic === LEVEL_ORDER[LEVEL_ORDER.length - 1]; 
-                
-                // Cari topik selanjutnya untuk label tombol
-                const currentLevelIdx = LEVEL_ORDER.indexOf(selectedTopic || '');
-                const nextTopicLabel = (currentLevelIdx >= 0 && currentLevelIdx < LEVEL_ORDER.length - 1) 
-                  ? LEVEL_ORDER[currentLevelIdx + 1] 
-                  : 'BERIKUTNYA';
+       {/* CONTENT */}
+       <div className="flex-1 max-w-4xl mx-auto w-full p-6">
+          <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-200 min-h-[60vh] flex flex-col">
+             
+             {/* PROGRESS BAR */}
+             <div className="w-full bg-slate-100 h-1.5 rounded-full mb-6 overflow-hidden">
+                <div className="bg-blue-600 h-full transition-all" style={{ width: `${((currentQIndex + 1) / exam.questions.length) * 100}%` }}></div>
+             </div>
 
-                if (isLastQuestion) {
-                  if (isOmnibus || isFinalLevel) {
-                    return (
-                      <div className="flex gap-2">
-                         <button onClick={() => handleSubmit(false)} className="bg-emerald-600 text-white px-10 py-4 rounded-2xl font-bold shadow-lg hover:bg-emerald-700 transition-all flex items-center gap-2 animate-pulse">
-                           <CheckCircle size={20} /> KUMPULKAN SEMUA
-                         </button>
+             {/* QUESTION */}
+             <div className="mb-8">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Soal {currentQIndex + 1}</span>
+                <h2 className="text-xl md:text-2xl font-bold text-slate-800 mt-2 leading-relaxed">{q.text}</h2>
+             </div>
+             
+             {/* DATA TABLE (IF ANY) */}
+             {q.spreadsheetData && (
+                <div className="mb-8 overflow-x-auto border border-slate-200 rounded-xl">
+                   <table className="w-full text-sm text-left">
+                      <tbody>
+                         {q.spreadsheetData.map((row, i) => (
+                            <tr key={i} className={i===0 ? 'bg-slate-50 font-bold' : ''}>
+                               {row.map((cell, j) => (
+                                  <td key={j} className="border px-4 py-2">{cell}</td>
+                               ))}
+                            </tr>
+                         ))}
+                      </tbody>
+                   </table>
+                </div>
+             )}
+
+             {/* ANSWER AREA */}
+             <div className="mt-4 flex-1">
+                {q.type === 'ESSAY' ? (
+                   <div className="space-y-6">
+                      {/* DRIVE LINK */}
+                      <div className="bg-orange-50 p-6 rounded-2xl border border-orange-100">
+                         <h4 className="font-bold text-orange-700 text-sm mb-2 flex items-center gap-2"><FolderOpen size={16}/> LANGKAH 1: UPLOAD KE DRIVE</h4>
+                         <a href="https://drive.google.com/drive/folders/1EUD6nuCcUDlcINxLw__fjZOQ6Mx7BVGO?usp=drive_link" target="_blank" className="block w-full bg-orange-600 text-white text-center py-3 rounded-xl font-bold hover:bg-orange-700 transition text-sm">
+                            BUKA FOLDER PENGUMPULAN
+                         </a>
                       </div>
-                    );
-                  } else {
-                    return (
-                      <button onClick={handleNextLevel} className="bg-blue-600 text-white px-10 py-4 rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition-all flex items-center gap-2">
-                        SELESAI {selectedTopic} <ArrowRightCircle size={20} /> LANJUT {nextTopicLabel}
-                      </button>
-                    );
-                  }
-                } else {
-                  return (
-                    <button onClick={handleSmartNext} className={`px-8 py-4 rounded-2xl font-bold shadow-lg flex items-center gap-2 transition-all ${isSectionChange ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-slate-800 text-white hover:bg-slate-700'}`}>
-                      {isSectionChange ? <>LANJUT: {nextCat?.label} <ArrowRightCircle size={20} /></> : <>Selanjutnya <ChevronRight size={20} /></>}
-                    </button>
-                  );
-                }
-              })()}
-            </div>
-            
-            {/* EMERGENCY EXIT */}
-            <div className="mt-4 text-center">
-               <button onClick={() => handleSubmit(true)} className="text-[10px] text-slate-300 hover:text-red-400 font-bold underline decoration-dotted cursor-pointer" title="Gunakan tombol ini jika tombol utama bermasalah">
-                 Simpan & Keluar Paksa (Darurat)
-               </button>
-            </div>
-          </div>
-        </div>
+                      
+                      {/* SYSTEM UPLOAD */}
+                      <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 text-center">
+                         <h4 className="font-bold text-slate-700 text-sm mb-4">LANGKAH 2: KONFIRMASI DI SINI</h4>
+                         {session.answers[q.id] ? (
+                            <div className="text-emerald-600 font-bold flex flex-col items-center gap-2">
+                               <CheckCircle size={32} />
+                               <span>File Terupload!</span>
+                               <button onClick={() => handleAnswer(q.id, null)} className="text-xs text-red-500 underline">Ganti File</button>
+                            </div>
+                         ) : (
+                            <input type="file" onChange={async (e) => {
+                               const f = e.target.files?.[0];
+                               if(f) {
+                                  const loadId = toast.loading("Uploading...");
+                                  try {
+                                     const url = await examService.uploadExamFile(f, user?.uid ?? '', session.examId, q.id);
+                                     await handleAnswer(q.id, url);
+                                     toast.success("Sukses!", { id: loadId });
+                                  } catch { toast.error("Gagal", { id: loadId }); }
+                               }
+                            }} />
+                         )}
+                      </div>
+                   </div>
+                ) : (
+                   <div className="space-y-3">
+                      {q.options.map((opt, idx) => (
+                         <button 
+                           key={idx}
+                           onClick={() => handleAnswer(q.id, idx)}
+                           className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${session.answers[q.id] === idx ? 'border-blue-500 bg-blue-50 text-blue-800' : 'border-slate-100 hover:border-blue-200'}`}
+                         >
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${session.answers[q.id] === idx ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                               {String.fromCharCode(65+idx)}
+                            </div>
+                            <span className="font-medium">{opt}</span>
+                         </button>
+                      ))}
+                   </div>
+                )}
+             </div>
 
-        <div className="w-96 bg-white border-l border-slate-200 p-8 overflow-y-auto hidden lg:block">
-          <h3 className="font-black text-slate-800 mb-8 flex items-center gap-2 uppercase tracking-widest text-sm"><List size={20} /> Navigasi Soal</h3>
-          <div className="grid grid-cols-5 gap-3">
-            {exam.questions.map((q, idx) => {
-              const isAnswered = answers[q.id] !== undefined;
-              const isCurrent = currentQIndex === idx;
-              const qCat = getCategoryInfo(q.id);
-              return (
-                <button key={idx} onClick={() => setCurrentQIndex(idx)} className={`aspect-square rounded-2xl font-bold text-xs transition-all flex items-center justify-center border-2 ${isCurrent ? 'bg-blue-600 text-white border-blue-600 shadow-xl scale-110 ring-4 ring-blue-100 z-10' : isAnswered ? 'bg-emerald-500 text-white border-emerald-500 shadow-md' : `${qCat.bg} ${qCat.color} border-slate-100 hover:border-blue-400`}`}>{idx + 1}</button>
-              );
-            })}
+             {/*NAVIGATION */}
+             <div className="mt-8 flex justify-between pt-6 border-t border-slate-100">
+                <button disabled={currentQIndex===0} onClick={() => setCurrentQIndex(i => i-1)} className="flex items-center gap-2 text-slate-400 font-bold disabled:opacity-50">
+                   <ChevronLeft size={20} /> Sebelumnya
+                </button>
+                
+                {currentQIndex === exam.questions.length - 1 ? (
+                   <button onClick={() => handleCompleteTopic(selectedTopic!)} className="bg-emerald-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-emerald-700 flex items-center gap-2">
+                      SELESAI MODUL INI <CheckCircle size={20} />
+                   </button>
+                ) : (
+                   <button onClick={() => setCurrentQIndex(i => i+1)} className="bg-slate-800 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-slate-700 flex items-center gap-2">
+                      Selanjutnya <ChevronRight size={20} />
+                   </button>
+                )}
+             </div>
+
           </div>
-          <div className="mt-12 p-6 bg-blue-50 rounded-[2rem] border border-blue-100 shadow-inner">
-            <h4 className="font-black text-blue-800 text-[10px] uppercase mb-3 tracking-[0.2em]">Progress Capaian</h4>
-            <div className="w-full bg-blue-200 rounded-full h-2 mb-3 overflow-hidden">
-              <div className="bg-blue-600 h-full transition-all duration-1000 ease-out" style={{ width: `${(Object.keys(answers).length / exam.questions.length) * 100}%` }}></div>
-            </div>
-            <p className="text-xs text-blue-600 font-black">{Object.keys(answers).length} / {exam.questions.length} SOAL TERJAWAB</p>
+       </div>
+
+       {/* === MODAL TIPS & TRIK (ONBOARDING) === */}
+       {showTips && session && (
+          <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+             <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-md animate-fade-in"></div>
+             
+             <div className="relative bg-white rounded-3xl max-w-lg w-full p-8 shadow-2xl animate-zoom-in">
+                <div className="text-center mb-6">
+                   <h2 className="text-2xl font-black text-slate-800 mb-2">🚀 TIPS SUKSES UJIAN</h2>
+                   <p className="text-slate-500 text-sm">Baca sebentar biar nggak panik nanti.</p>
+                </div>
+
+                <div className="space-y-4 mb-8">
+                   <div className="flex gap-4 items-start bg-blue-50 p-4 rounded-2xl">
+                      <div className="bg-blue-200 text-blue-700 p-2 rounded-lg font-bold text-xs">1</div>
+                      <div>
+                         <h4 className="font-bold text-slate-800 text-sm">Kerjakan yang Mudah Dulu</h4>
+                         <p className="text-xs text-slate-500 mt-1">Jangan terpaku pada satu soal susah. Waktu terus berjalan!</p>
+                      </div>
+                   </div>
+                   <div className="flex gap-4 items-start bg-orange-50 p-4 rounded-2xl">
+                      <div className="bg-orange-200 text-orange-700 p-2 rounded-lg font-bold text-xs">2</div>
+                      <div>
+                         <h4 className="font-bold text-slate-800 text-sm">Wajib Upload ke Drive</h4>
+                         <p className="text-xs text-slate-500 mt-1">Untuk soal Essay/Praktik, upload dulu ke link Google Drive yang disediakan, baru konfirmasi di sini.</p>
+                      </div>
+                   </div>
+                   <div className="flex gap-4 items-start bg-emerald-50 p-4 rounded-2xl">
+                      <div className="bg-emerald-200 text-emerald-700 p-2 rounded-lg font-bold text-xs">3</div>
+                      <div>
+                         <h4 className="font-bold text-slate-800 text-sm">Kirim Hasil Akhir</h4>
+                         <p className="text-xs text-slate-500 mt-1">Setelah semua modul selesai, jangan lupa klik tombol "KIRIM HASIL" di bagian atas.</p>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                   <button onClick={() => setShowTips(false)} className="py-3 px-4 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 text-xs">
+                      BERUSAHA PAHAM 😅
+                   </button>
+                   <button onClick={() => setShowTips(false)} className="py-3 px-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 text-xs">
+                      SIAP! BISMILLAH 🤲
+                   </button>
+                </div>
+             </div>
           </div>
-        </div>
-      </div>
+       )}
+
+       {/* === MODAL SELAMAT (CELEBRATION) === */}
+       {showSuccessModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-hidden">
+             <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-xl animate-fade-in"></div>
+             
+             <div className="relative bg-white rounded-[3rem] max-w-lg w-full p-10 text-center shadow-2xl border border-white/20 animate-fade-in-up">
+                <div className="w-24 h-24 bg-gradient-to-br from-emerald-400 to-teal-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl shadow-emerald-200 rotate-6 transform hover:rotate-12 transition-transform duration-500">
+                   <Award size={56} className="text-white" />
+                </div>
+
+                <h2 className="text-3xl font-black text-slate-800 mb-4 tracking-tight">
+                   Alhamdulillah, Selesai!
+                </h2>
+                
+                <div className="space-y-4 mb-10">
+                   <p className="text-slate-600 leading-relaxed font-medium">
+                      Kerja keras Anda hari ini telah terekam dengan baik di sistem kami.
+                   </p>
+                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-widest">
+                      Data Hasil Ujian Telah Dikirim ke Instruktur
+                   </div>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                   <button 
+                     onClick={() => navigate('/reports')}
+                     className="w-full bg-slate-900 text-white font-bold py-5 rounded-2xl hover:bg-slate-800 transition-all shadow-xl flex items-center justify-center gap-3 group"
+                   >
+                      LIHAT REKAP NILAI SAYA
+                      <ArrowRightCircle size={20} className="group-hover:translate-x-1 transition-transform" />
+                   </button>
+                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                      LP3I COLLEGE INDRAMAYU • PROFESIONAL IT & OFFICE
+                   </p>
+                </div>
+
+                <div className="absolute -top-20 -right-20 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl"></div>
+                <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl"></div>
+             </div>
+          </div>
+       )}
     </div>
   );
 };
+
+// Helper Icon for Name Input
+const UserIcon = ({ size }: { size: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+    <circle cx="12" cy="7" r="4"></circle>
+  </svg>
+);
 
 export default ExamRoom;
