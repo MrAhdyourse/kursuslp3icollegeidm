@@ -73,8 +73,13 @@ const Reports: React.FC = () => {
     }
 
     // Generate & Download
-    const doc = generateCertificate(reportData, certType);
-    downloadPDF(doc, `Sertifikat_${reportData.student.name}_${certType}.pdf`);
+    try {
+      const doc = await generateCertificate(reportData, certType);
+      downloadPDF(doc, `Sertifikat_${reportData.student.name}_${certType}.pdf`);
+    } catch (error) {
+      console.error("Gagal generate sertifikat:", error);
+      alert("Maaf, terjadi kesalahan saat membuat sertifikat. Pastikan koneksi lancar untuk memuat aset gambar.");
+    }
   };
 
   const handleDownloadExcel = () => {
